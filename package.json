@@ -1,0 +1,36 @@
+{
+  "name": "web-docs-pterodactyl-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Premium web documentation for Akadev Pterodactyl Gateway with local search and AI assistant.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc -b --pretty",
+    "lint": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "express": "latest",
+    "lucide-react": "latest",
+    "framer-motion": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
