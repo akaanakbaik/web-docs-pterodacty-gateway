@@ -4,6 +4,7 @@ const app = express();
 app.use(express.json({ limit: "120kb" }));
 
 const AI_ENDPOINT = "https://xters.us.kg/api/ai/perplexity";
+type AiUpstreamResponse = Record<string, unknown>;
 
 function cleanText(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -29,6 +30,12 @@ function createPrompt(question: string, context: string) {
   ].join("\n");
 }
 
+async function readUpstreamJson(response: Response): Promise<AiUpstreamResponse> {
+  const value: unknown = await response.json().catch(() => ({}));
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as AiUpstreamResponse;
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "pterodactyl-gateway-docs" });
 });
@@ -49,8 +56,8 @@ app.post("/api/ai", async (req, res) => {
       headers: { accept: "application/json" },
       signal: AbortSignal.timeout(25000)
     });
-    const data = await upstream.json().catch(() => ({}));
-    const answer = cleanText(data?.answer || data?.result || data?.message);
+    const data = await readUpstreamJson(upstream);
+    const answer = cleanText(data.answer || data.result || data.message);
 
     res.status(upstream.ok ? 200 : 502).json({
       ok: upstream.ok,
