@@ -1,13 +1,24 @@
 import express from "express";
 
 const app = express();
-app.use(express.json({ limit: "120kb" }));
+app.use(express.json({ limit: "160kb" }));
 
 const AI_ENDPOINT = "https://xters.us.kg/api/ai/perplexity";
-type AiUpstreamResponse = Record<string, unknown>;
+type JsonObject = Record<string, unknown>;
 
 function cleanText(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function asObject(value: unknown): JsonObject {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as JsonObject;
+}
+
+function pickAnswer(payload: JsonObject) {
+  const data = asObject(payload.data);
+  const response = asObject(data.response);
+  return cleanText(response.answer);
 }
 
 function createPrompt(question: string, context: string) {
@@ -19,9 +30,10 @@ function createPrompt(question: string, context: string) {
     "Jangan mengarang fitur yang tidak ada di context.",
     "Jangan meminta atau menampilkan credential asli.",
     "Jika pertanyaan tentang node/location/allocation management, jelaskan bahwa CLI stabil tidak membuka command sensitif tersebut; gunakan IDs manual dari panel atau ptero-gateway ids.",
+    "Utamakan package npm @akaanakbaik/pterodactyl-gateway karena versi npm adalah versi stabil untuk user.",
     "",
     "Context dokumentasi:",
-    context.slice(0, 9000),
+    context.slice(0, 11000),
     "",
     "Pertanyaan:",
     question,
@@ -30,10 +42,9 @@ function createPrompt(question: string, context: string) {
   ].join("\n");
 }
 
-async function readUpstreamJson(response: Response): Promise<AiUpstreamResponse> {
+async function readUpstreamJson(response: Response): Promise<JsonObject> {
   const value: unknown = await response.json().catch(() => ({}));
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return value as AiUpstreamResponse;
+  return asObject(value);
 }
 
 app.get("/api/health", (_req, res) => {
@@ -57,7 +68,7 @@ app.post("/api/ai", async (req, res) => {
       signal: AbortSignal.timeout(25000)
     });
     const data = await readUpstreamJson(upstream);
-    const answer = cleanText(data.answer || data.result || data.message);
+    const answer = pickAnswer(data);
 
     res.status(upstream.ok ? 200 : 502).json({
       ok: upstream.ok,
