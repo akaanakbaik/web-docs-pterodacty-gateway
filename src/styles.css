@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #191816;
+  background: #f8f7f3;
+  font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  --ring: rgba(185, 139, 98, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(185, 139, 98, 0.08), transparent 26rem),
+    radial-gradient(circle at 92% 8%, rgba(119, 131, 113, 0.1), transparent 24rem),
+    #f8f7f3;
+}
+
+::selection {
+  background: #efe0cf;
+}
+
+code, pre {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(25, 24, 22, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 24, 22, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.premium-card {
+  border: 1px solid rgba(231, 225, 215, 0.9);
+  background: rgba(255, 253, 248, 0.82);
+  box-shadow: 0 24px 80px rgba(31, 27, 20, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.glass-line {
+  border: 1px solid rgba(231, 225, 215, 0.8);
+  background: rgba(255, 253, 248, 0.68);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 7px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #ded4c7;
+  border-radius: 999px;
+}
+
+.focus-ring:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.prose-doc p {
+  color: #514c45;
+  line-height: 1.76;
+}
+
+.prose-doc strong {
+  color: #191816;
+}
+
+@media (max-width: 768px) {
+  body {
+    background-size: auto;
+  }
+
+  .mobile-compact {
+    font-size: 0.875rem;
+  }
+}
