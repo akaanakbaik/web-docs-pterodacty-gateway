@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Pterodactyl Gateway Docs">
+  <rect width="128" height="128" rx="30" fill="#f8f7f3"/>
+  <rect x="18" y="18" width="92" height="92" rx="24" fill="#fffdf8" stroke="#e7e1d7" stroke-width="3"/>
+  <path d="M37 43c0-4.4 3.6-8 8-8h38c4.4 0 8 3.6 8 8v42c0 4.4-3.6 8-8 8H45c-4.4 0-8-3.6-8-8V43Z" fill="#191816"/>
+  <path d="M49 54l12 10-12 10" fill="none" stroke="#f8f7f3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68 76h18" fill="none" stroke="#b98b62" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="91" cy="37" r="12" fill="#778371"/>
+  <path d="M87 37l3 3 6-7" fill="none" stroke="#fffdf8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
