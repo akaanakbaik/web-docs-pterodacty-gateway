@@ -1,7 +1,7 @@
 import express from "express";
 
 const app = express();
-app.use(express.json({ limit: "180kb" }));
+app.use(express.json({ limit: "90kb" }));
 
 const PRIMARY_AI_ENDPOINT = "https://xters.us.kg/api/ai/perplexity";
 const FALLBACK_AI_ENDPOINT = "https://www.kitsulabs.xyz/api/v1/perplexity";
@@ -11,7 +11,11 @@ type JsonObject = Record<string, unknown>;
 type ProviderResult = { ok: boolean; answer: string; status: number };
 
 function cleanText(value: unknown) {
-  return String(value ?? "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return String(value ?? "").replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function compactText(value: string, max = 5200) {
+  return cleanText(value).slice(0, max);
 }
 
 function asObject(value: unknown): JsonObject {
@@ -22,36 +26,30 @@ function asObject(value: unknown): JsonObject {
 function pickPrimaryAnswer(payload: JsonObject) {
   const data = asObject(payload.data);
   const response = asObject(data.response);
-  return cleanText(response.answer);
+  return cleanText(response.answer || data.answer || payload.answer || payload.result || payload.message);
 }
 
 function pickFallbackAnswer(payload: JsonObject) {
-  return cleanText(payload.answer);
+  const data = asObject(payload.data);
+  const response = asObject(data.response);
+  return cleanText(payload.answer || response.answer || data.answer || payload.result || payload.message);
 }
 
 function createPrompt(question: string, context: string) {
   return [
-    "Kamu adalah Akadev Pterodactyl Gateway Docs Assistant.",
-    "Identitas produk: Akadev Pterodactyl Gateway adalah package npm stabil @akaanakbaik/pterodactyl-gateway versi 1.0.2 untuk SDK TypeScript ESM, CLI, wizard, config profile, integration helper, bot WhatsApp, bot Telegram, bot Discord, website/API, file manager, backups, schedules, resources, server power, security guard, troubleshooting, dan deployment.",
-    "URL penting: Web Docs https://web-docs-pterodacty-gateway.vercel.app, GitHub https://github.com/akaanakbaik/pterodactyl-gateway, npm https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway.",
-    "Jawab hanya seputar Akadev Pterodactyl Gateway dan ekosistem Pterodactyl Panel yang relevan.",
-    "Gunakan bahasa Indonesia yang profesional, jelas, padat, dan mudah dipahami pemula.",
-    "Jika memberi command terminal, WAJIB taruh dalam fenced code block ```bash ... ```.",
-    "Jika memberi kode JavaScript/TypeScript, WAJIB taruh dalam fenced code block ```ts ... ``` atau ```js ... ```.",
-    "Jika memberi JSON/env/config, WAJIB taruh dalam fenced code block sesuai jenisnya.",
-    "Jangan menulis command panjang di paragraf biasa. Command harus di code block agar UI bisa membuat kotak salin otomatis.",
-    "Berikan langkah praktis dan troubleshooting yang bisa langsung dicoba.",
-    "Jangan mengarang fitur yang tidak ada di context.",
-    "Jangan meminta atau menampilkan credential asli. Jika user menulis credential, sarankan sensor token/API key/password.",
-    "Jika pertanyaan tentang node/location/allocation management, jelaskan bahwa CLI stabil tidak membuka command sensitif tersebut; gunakan panel admin atau ptero-gateway ids untuk memilih ID manual.",
-    "Utamakan install dari npm karena versi npm adalah versi stabil untuk user.",
-    "",
-    "Context dokumentasi lokal:",
-    context.slice(0, 13000),
-    "",
-    "Pertanyaan user:",
-    question,
-    "",
+    "Kamu adalah AI docs assistant untuk Akadev Pterodactyl Gateway.",
+    "Produk: @akaanakbaik/pterodactyl-gateway v1.0.2, SDK TypeScript ESM + CLI + wizard untuk Pterodactyl Panel.",
+    "URL: Web Docs https://web-docs-pterodacty-gateway.vercel.app | GitHub https://github.com/akaanakbaik/pterodactyl-gateway | npm https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway",
+    "Jawab bahasa Indonesia, singkat, jelas, praktis, dan khusus seputar gateway/Pterodactyl.",
+    "Jika memberi command terminal, tulis dalam fenced code block ```bash ... ```.",
+    "Jika memberi kode TypeScript/JavaScript/JSON/env, tulis dalam fenced code block sesuai jenisnya.",
+    "Jangan taruh command di paragraf biasa. Jangan sebut nama provider/model/API.",
+    "Jangan meminta atau membuka credential asli; minta user sensor token/password/API key.",
+    "Fitur sensitif node/location/allocation tidak tersedia di CLI stabil; gunakan panel admin atau ptero-gateway ids untuk pilih ID manual.",
+    "Context ringkas:",
+    compactText(context),
+    "Pertanyaan:",
+    compactText(question, 1500),
     "Jawaban:"
   ].join("\n");
 }
@@ -62,8 +60,8 @@ async function readUpstreamJson(response: Response): Promise<JsonObject> {
 }
 
 async function callPrimary(prompt: string): Promise<ProviderResult> {
-  const url = `${PRIMARY_AI_ENDPOINT}?query=${encodeURIComponent(prompt)}`;
-  const upstream = await fetch(url, {
+  const query = encodeURIComponent(prompt.slice(0, 6500));
+  const upstream = await fetch(`${PRIMARY_AI_ENDPOINT}?query=${query}`, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(15000)
   });
@@ -72,18 +70,20 @@ async function callPrimary(prompt: string): Promise<ProviderResult> {
 }
 
 async function callFallback(prompt: string): Promise<ProviderResult> {
-  const url = `${FALLBACK_AI_ENDPOINT}?query=${encodeURIComponent(prompt)}`;
+  const query = encodeURIComponent(prompt.slice(0, 6500));
   const headers: Record<string, string> = { accept: "application/json" };
   if (FALLBACK_API_KEY) headers["x-api-key"] = FALLBACK_API_KEY;
-  const upstream = await fetch(url, {
+  const upstream = await fetch(`${FALLBACK_AI_ENDPOINT}?query=${query}`, {
     headers,
-    signal: AbortSignal.timeout(22000)
+    signal: AbortSignal.timeout(18000)
   });
   const data = await readUpstreamJson(upstream);
   return { ok: upstream.ok, status: upstream.status, answer: pickFallbackAnswer(data) };
 }
 
 async function askWithFallback(prompt: string) {
+  const fallbackText = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
+
   try {
     const primary = await callPrimary(prompt);
     if (primary.ok && primary.answer) return primary.answer;
@@ -98,7 +98,7 @@ async function askWithFallback(prompt: string) {
     // handled below
   }
 
-  return "AI assistant sedang tidak tersedia. Kamu tetap bisa memakai search lokal dan dokumentasi di halaman ini.";
+  return fallbackText;
 }
 
 app.get("/api/health", (_req, res) => {
