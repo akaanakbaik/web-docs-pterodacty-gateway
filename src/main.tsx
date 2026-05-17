@@ -272,7 +272,7 @@ function TerminalSimulation({ steps }: { steps: SimulationStep[] }) {
   const [typed, setTyped] = useState("");
   const [showOutput, setShowOutput] = useState(false);
   const step = steps[active] ?? steps[0];
-  const realOutput = (command: string, fallback: string) => {
+  const realOutput = (command: string, fallbackOutput: string) => {
     const cmd = command.toLowerCase();
     if (cmd.includes("self-check") || cmd.includes("version")) return `ptero-gateway self-check
 @akaanakbaik/pterodactyl-gateway@1.0.2
@@ -290,7 +290,7 @@ Mode: installed
 ✓ prepublishOnly: npm run verify
 ✓ node >=18: v22.22.2`;
     if (cmd.includes("npm i") || cmd.includes("npm install")) return "added 1 package in 1s\nfound 0 vulnerabilities";
-    return fallback || "Command completed successfully.";
+    return fallbackOutput || "Command completed successfully.";
   };
   useEffect(() => {
     if (!step) return;
