@@ -2,7 +2,7 @@
 
 Website dokumentasi premium untuk package npm stabil [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway).
 
-> URL produksi yang disiapkan: `https://web-docs-pterodacty-gateway.vercel.app`
+> URL produksi yang disiapkan: `https://pterodacty-gateway.akadev.me`
 
 ## Tujuan
 
