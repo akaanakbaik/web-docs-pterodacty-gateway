@@ -26,7 +26,10 @@ function asObject(value: unknown): JsonObject {
 function pickPrimaryAnswer(payload: JsonObject) {
   const data = asObject(payload.data);
   const response = asObject(data.response);
-  return cleanText(response.answer || data.answer || payload.answer || payload.result || payload.message);
+  const choices = Array.isArray(payload.choices) ? payload.choices : [];
+  const first = asObject(choices[0]);
+  const msg = asObject(first.message);
+  return cleanText(msg.content || response.answer || data.answer || payload.answer || payload.result || payload.message);
 }
 
 function pickFallbackAnswer(payload: JsonObject) {
@@ -87,6 +90,7 @@ async function askWithFallback(prompt: string) {
   try {
     const primary = await callPrimary(prompt);
     if (primary.ok && primary.answer) return primary.answer;
+    if (primary.answer) return primary.answer;
   } catch {
     // silent fallback
   }
@@ -94,6 +98,7 @@ async function askWithFallback(prompt: string) {
   try {
     const fallback = await callFallback(prompt);
     if (fallback.ok && fallback.answer) return fallback.answer;
+    if (fallback.answer) return fallback.answer;
   } catch {
     // handled below
   }

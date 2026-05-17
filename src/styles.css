@@ -4,11 +4,11 @@
 
 :root {
   color: #191816;
-  background: #f8f7f3;
+  background: #0f1722;
   font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
-  --ring: rgba(185, 139, 98, 0.28);
+  --ring: rgba(120, 158, 255, 0.4);
 }
 
 * {
@@ -30,7 +30,7 @@ body {
   background:
     radial-gradient(circle at 8% 0%, rgba(185, 139, 98, 0.08), transparent 26rem),
     radial-gradient(circle at 92% 8%, rgba(119, 131, 113, 0.1), transparent 24rem),
-    #f8f7f3;
+    #0f1722;
 }
 
 #root,
@@ -76,15 +76,15 @@ canvas {
 }
 
 .premium-card {
-  border: 1px solid rgba(231, 225, 215, 0.9);
-  background: rgba(255, 253, 248, 0.82);
-  box-shadow: 0 24px 80px rgba(31, 27, 20, 0.08);
+  border: 1px solid rgba(120, 136, 167, 0.25);
+  background: rgba(18, 25, 38, 0.92);
+  box-shadow: 0 24px 80px rgba(2, 6, 18, 0.45);
   backdrop-filter: blur(18px);
 }
 
 .glass-line {
-  border: 1px solid rgba(231, 225, 215, 0.8);
-  background: rgba(255, 253, 248, 0.68);
+  border: 1px solid rgba(120, 136, 167, 0.24);
+  background: rgba(20, 30, 46, 0.85);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -102,7 +102,7 @@ canvas {
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #ded4c7;
+  background: #3b4b68;
   border-radius: 999px;
 }
 
@@ -122,79 +122,13 @@ canvas {
 }
 
 .prose-doc p {
-  color: #514c45;
+  color: #b9c4d8;
   line-height: 1.76;
   overflow-wrap: anywhere;
 }
 
 .prose-doc strong {
-  color: #191816;
-}
-
-pre:has(.terminal-cursor) {
-  position: relative;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 0.85rem;
-  overflow: hidden;
-}
-
-pre:has(.terminal-cursor)::after {
-  content: "debug: command accepted · running hooks · validating response · success";
-  display: block;
-  margin-top: 0.75rem;
-  white-space: pre-wrap;
-  color: rgba(242, 234, 223, 0.72);
-  font-size: 0.72rem;
-  line-height: 1.6;
-  opacity: 0;
-  animation: terminalDebugOutput 3.2s ease-in-out infinite;
-}
-
-pre:has(.terminal-cursor) code {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  vertical-align: bottom;
-  white-space: nowrap;
-  animation: terminalTyping 3.2s steps(46, end) infinite;
-}
-
-.terminal-cursor {
-  display: inline-block;
-  margin-left: 2px;
-  color: #b98b62;
-  animation: cursorBlink 0.8s steps(2, start) infinite;
-}
-
-.terminal-progress {
-  width: 0%;
-  animation: terminalProgress 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-@keyframes cursorBlink {
-  0%, 45% { opacity: 1; }
-  46%, 100% { opacity: 0; }
-}
-
-@keyframes terminalTyping {
-  0% { width: 0; }
-  10% { width: 0; }
-  58% { width: min(100%, 52rem); }
-  100% { width: min(100%, 52rem); }
-}
-
-@keyframes terminalDebugOutput {
-  0%, 48% { opacity: 0; transform: translateY(-4px); }
-  58%, 92% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0.75; }
-}
-
-@keyframes terminalProgress {
-  0%, 45% { width: 0%; opacity: 0.35; }
-  58% { width: 35%; opacity: 1; }
-  72% { width: 74%; opacity: 1; }
-  92%, 100% { width: 100%; opacity: 0.82; }
+  color: #f2f6ff;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -222,15 +156,9 @@ pre:has(.terminal-cursor) code {
     backdrop-filter: blur(12px);
   }
 
-  pre:has(.terminal-cursor) code {
-    white-space: nowrap;
-    animation-name: terminalTypingMobile;
-  }
 }
 
-@keyframes terminalTypingMobile {
-  0% { width: 0; }
-  10% { width: 0; }
-  58% { width: 84vw; }
-  100% { width: 84vw; }
-}
+.terminal-cursor { animation: cursorBlink 0.9s steps(2, start) infinite; }
+.terminal-progress { width: 0%; animation: terminalProgress 4.8s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+@keyframes cursorBlink { 0%, 45% { opacity: 1; } 46%, 100% { opacity: 0; } }
+@keyframes terminalProgress { 0% { width: 6%; opacity: 0.45; } 35% { width: 36%; opacity: 1; } 75% { width: 78%; opacity: 0.95; } 100% { width: 100%; opacity: 0.8; } }

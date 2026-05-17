@@ -9,14 +9,14 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       },
       colors: {
-        ink: "#171717",
-        muted: "#6f6a61",
-        paper: "#f8f7f3",
-        card: "#ffffff",
-        line: "#e8e2d8",
-        soft: "#f0ebe2",
-        cocoa: "#6d5a44",
-        moss: "#596a53",
+        ink: "#e8eefc",
+        muted: "#9aa8c7",
+        paper: "#0f1726",
+        card: "#172133",
+        line: "#2a3954",
+        soft: "#111c2d",
+        cocoa: "#c79a64",
+        moss: "#7fb596",
         slatepremium: "#2d3135"
       },
       boxShadow: {
