@@ -131,16 +131,45 @@ canvas {
   color: #191816;
 }
 
+pre:has(.terminal-cursor) {
+  position: relative;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem;
+  overflow: hidden;
+}
+
+pre:has(.terminal-cursor)::after {
+  content: "debug: command accepted · running hooks · validating response · success";
+  display: block;
+  margin-top: 0.75rem;
+  white-space: pre-wrap;
+  color: rgba(242, 234, 223, 0.72);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  opacity: 0;
+  animation: terminalDebugOutput 3.2s ease-in-out infinite;
+}
+
+pre:has(.terminal-cursor) code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: bottom;
+  white-space: nowrap;
+  animation: terminalTyping 3.2s steps(46, end) infinite;
+}
+
 .terminal-cursor {
   display: inline-block;
   margin-left: 2px;
   color: #b98b62;
-  animation: cursorBlink 0.9s steps(2, start) infinite;
+  animation: cursorBlink 0.8s steps(2, start) infinite;
 }
 
 .terminal-progress {
   width: 0%;
-  animation: terminalProgress 2.4s ease-in-out infinite;
+  animation: terminalProgress 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 @keyframes cursorBlink {
@@ -148,10 +177,24 @@ canvas {
   46%, 100% { opacity: 0; }
 }
 
+@keyframes terminalTyping {
+  0% { width: 0; }
+  10% { width: 0; }
+  58% { width: min(100%, 52rem); }
+  100% { width: min(100%, 52rem); }
+}
+
+@keyframes terminalDebugOutput {
+  0%, 48% { opacity: 0; transform: translateY(-4px); }
+  58%, 92% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0.75; }
+}
+
 @keyframes terminalProgress {
-  0% { width: 0%; opacity: 0.6; }
-  55% { width: 78%; opacity: 1; }
-  100% { width: 100%; opacity: 0.7; }
+  0%, 45% { width: 0%; opacity: 0.35; }
+  58% { width: 35%; opacity: 1; }
+  72% { width: 74%; opacity: 1; }
+  92%, 100% { width: 100%; opacity: 0.82; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -178,4 +221,16 @@ canvas {
   .glass-line {
     backdrop-filter: blur(12px);
   }
+
+  pre:has(.terminal-cursor) code {
+    white-space: nowrap;
+    animation-name: terminalTypingMobile;
+  }
+}
+
+@keyframes terminalTypingMobile {
+  0% { width: 0; }
+  10% { width: 0; }
+  58% { width: 84vw; }
+  100% { width: 84vw; }
 }
