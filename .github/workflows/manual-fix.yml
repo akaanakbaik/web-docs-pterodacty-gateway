@@ -1,0 +1,20 @@
+name: 🚨 Emergency Manual Fix PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR Number to fix'
+        required: true
+        type: number
+
+jobs:
+  manual-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fix specific PR
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          echo "🔧 Manually fixing PR #$PR_NUMBER"
+          # Sama seperti logic di atas tapi untuk 1 PR
