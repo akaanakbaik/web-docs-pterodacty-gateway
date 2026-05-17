@@ -10,7 +10,7 @@ export default {
       },
       colors: {
         paper: "#060d19",
-        ink: "#edf4ff",
+        ink: "#c8ced8",
         muted: "#98abc9",
         line: "#233754",
         card: "#101b2e",
