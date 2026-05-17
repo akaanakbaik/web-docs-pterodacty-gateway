@@ -1,6 +1,6 @@
 {
   "name": "web-docs-pterodactyl-gateway",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "Premium web documentation for Akadev Pterodactyl Gateway with local search and AI assistant.",
