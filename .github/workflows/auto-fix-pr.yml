@@ -1,1 +1,142 @@
-p
+name: 🤖 AI Auto-Fix Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: '*/30 * * * *' # Opsional: cek setiap 30 menit
+  workflow_dispatch: # Bisa dijalankan manual
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  analyze-and-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 🔍 Cek PR yang bermasalah
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc'
+            });
+            
+            const problematicPRs = [];
+            
+            for (const pr of prs) {
+              // Cek merge conflict
+              if (pr.mergeable_state === 'dirty' || pr.mergeable === false) {
+                problematicPRs.push({
+                  number: pr.number,
+                  issue: 'merge_conflict',
+                  title: pr.title,
+                  branch: pr.head.ref
+                });
+                continue;
+              }
+              
+              // Cek failed status checks
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha
+              });
+              
+              const failedChecks = checks.check_runs.filter(c => c.status === 'completed' && c.conclusion === 'failure');
+              if (failedChecks.length > 0) {
+                problematicPRs.push({
+                  number: pr.number,
+                  issue: 'failed_checks',
+                  title: pr.title,
+                  branch: pr.head.ref,
+                  failed_checks: failedChecks.map(c => c.name)
+                });
+              }
+            }
+            
+            console.log('PR bermasalah:', problematicPRs);
+            core.setOutput('problematic', JSON.stringify(problematicPRs));
+
+      - name: 🤖 Kirim ke AI untuk solusi
+        if: fromJSON(steps.check.outputs.problematic).length > 0
+        id: ai-solve
+        run: |
+          PROBLEMATIC='${{ steps.check.outputs.problematic }}'
+          
+          SYSTEM_PROMPT="Kamu adalah asisten GitHub Action. Tugasmu: analisa masalah pull request dan berikan perintah git serta kode perbaikan. Format output HARUS JSON:\n
+          {\n
+            \"pr_number\": number,\n
+            \"issue_type\": \"merge_conflict|failed_checks|syntax_error\",\n
+            \"fix_commands\": [\"git command 1\", \"git command 2\"],\n
+            \"files_to_fix\": [{\"path\": \"file.js\", \"original_snippet\": \"...\", \"fixed_snippet\": \"...\"}],\n
+            \"explanation\": \"penjelasan singkat\"\n
+          }\n
+          JANGAN tambahkan teks lain di luar JSON."
+          
+          USER_PROMPT="PR #${PR_NUMBER}: ${ISSUE_DETAIL}. Perbaiki sepenuhnya."
+          
+          # Panggil API DeepSeek (prioritas)
+          RESPONSE=$(curl -s --max-time 55 \
+            "https://api.cuki.biz.id/api/ai/deepseek?apikey=cuki-x&question=$(echo -e "${SYSTEM_PROMPT}\n\n${USER_PROMPT}" | jq -sRr @uri)")
+          
+          echo "AI_RESPONSE=$RESPONSE" >> $GITHUB_OUTPUT
+
+      - name: 🔧 Apply perbaikan dari AI
+        if: steps.ai-solve.outputs.AI_RESPONSE != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Parse JSON response
+          FIX_PLAN='${{ steps.ai-solve.outputs.AI_RESPONSE }}'
+          PR_NUMBER=$(echo $FIX_PLAN | jq -r '.pr_number')
+          
+          git config user.name "AI Fix Bot"
+          git config user.email "ai-fix@github-action.local"
+          
+          # Checkout branch PR
+          gh pr checkout $PR_NUMBER
+          
+          # Eksekusi perintah perbaikan
+          echo $FIX_PLAN | jq -r '.fix_commands[]' | while read cmd; do
+            eval $cmd || echo "⚠️ Command failed: $cmd"
+          done
+          
+          # Apply file fixes
+          echo $FIX_PLAN | jq -r '.files_to_fix[] | "\(.path)|\(.fixed_snippet)"' | while IFS='|' read path content; do
+            echo "$content" > "$path"
+            git add "$path"
+          done
+          
+          # Commit & push jika ada perubahan
+          if ! git diff --cached --quiet; then
+            git commit -m "🤖 AI auto-fix: $(echo $FIX_PLAN | jq -r '.explanation')"
+            git push origin HEAD
+          fi
+          
+          # Tambah komentar ke PR
+          gh pr comment $PR_NUMBER --body "✅ **AI Auto-Fix Applied**\n\n$(echo $FIX_PLAN | jq -r '.explanation')"
+
+      - name: ⚠️ Fallback ke GPT jika DeepSeek timeout/error
+        if: steps.ai-solve.outputs.AI_RESPONSE == '' || failure()
+        id: ai-fallback
+        run: |
+          echo "⚠️ DeepSeek tidak merespon, fallback ke GPT..."
+          RESPONSE=$(curl -s --max-time 55 \
+            "https://api.cuki.biz.id/api/ai/gpt?apikey=cuki-x&question=$(echo -e "${SYSTEM_PROMPT}\n\n${USER_PROMPT}" | jq -sRr @uri)")
+          
+          echo "AI_RESPONSE_FALLBACK=$RESPONSE" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Label PR yang gagal difix
+        if: failure()
+        run: |
+          gh pr edit $PR_NUMBER --add-label "need-manual-fix"
+          gh pr comment $PR_NUMBER --body "❌ **AI gagal memperbaiki otomatis**\n\nSilakan perbaiki manual."
