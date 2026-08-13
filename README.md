@@ -17,7 +17,7 @@ Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`]
 | Source guard | Menolak komentar kode dan pola credential pada file ter-track |
 | Site smoke | Memeriksa metadata build, icon, manifest, canonical, dan stale version marker |
 | Dependency audit | Quality gate gagal pada high severity; temuan low tetap dilaporkan untuk pemantauan |
-| AI assistant | Input limit, timeout upstream, fallback, sanitasi, dan prompt versi v1.4.2 |
+| AI assistant | Input limit, shared system prompt, failover Izuka/Cuki/Prexzy, timeout upstream, normalizer response, dan fallback lokal |
 
 Dokumentasi situs adalah lapisan frontend dan serverless AI proxy. Semua operasi Pterodactyl asli tetap dilakukan oleh backend atau CLI package utama. Situs ini tidak menyimpan atau meminta credential panel.
 
@@ -51,7 +51,7 @@ Situs memakai navigasi per halaman, search lokal dengan scoring berdasarkan judu
 
 Hero menggunakan ilustrasi system map dan identitas grafis khusus. Code block, terminal simulation, status chip, path label, dan callout memakai material berbeda agar pembaca dapat membedakan instruksi, output, dan warning. Tombol copy memiliki fallback ketika Clipboard API tidak tersedia. Focus ring, label input, `aria-live`, dialog label, serta `prefers-reduced-motion` disiapkan untuk aksesibilitas dasar.
 
-AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi. Endpoint memvalidasi pertanyaan maksimum 1.500 karakter, membatasi context maksimum 32.000 karakter, memakai timeout upstream, memilih jawaban dari struktur response yang aman, dan mengembalikan fallback generik ketika provider tidak tersedia.
+AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi. Endpoint memvalidasi pertanyaan maksimum 1.500 karakter, membatasi context maksimum 32.000 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna.
 
 ## Selaras dengan SDK v1.4.2
 
@@ -100,7 +100,7 @@ Atau jalankan semuanya sekaligus:
 npm run ci
 ```
 
-`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, dan `scripts/source-guard.mjs`. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
+`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta empat test failover AI dengan mock provider. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
 
 `npm run build` menghasilkan bundle production pada `dist`. `npm run test:site` memeriksa marker metadata yang harus ada pada `dist/index.html` dan menolak marker versi lama. Smoke test tidak memanggil provider AI dan dapat berjalan deterministik di CI.
 
@@ -131,14 +131,15 @@ Endpoint health tersedia pada:
 GET /api/health
 ```
 
-Jika provider fallback AI digunakan, set `KITSU_API_KEY` hanya melalui environment secret hosting. Jangan menaruh key pada `VITE_*`, source frontend, `README.md`, atau workflow log.
+Jika provider Cuki digunakan, set `CUKI_API_KEY` hanya melalui environment secret hosting. Jangan menaruh key pada `VITE_*`, source frontend, `README.md`, atau workflow log. Izuka dan Prexzy tidak memerlukan key pada implementation ini.
 
 ## Struktur Repositori
 
 ```text
-api/ai.ts                    Serverless AI endpoint, validation, timeout, fallback
+api/ai.ts                    Serverless AI endpoint, shared prompt, failover, validation, timeout
 src/data/docs.ts             Knowledge base v1.4.2 dan route content
-src/data/ai.ts               System prompt lokal assistant
+src/data/aiPrompt.ts        Shared system prompt dan prompt builder
+src/data/ai.ts               Knowledge base prompt lokal assistant
 src/main.tsx                 Router SPA, search, docs UI, terminal, assistant
 src/styles.css               Material, theme, responsive, motion, focus ring
 public/icon.svg              Favicon dan icon deployment
@@ -146,6 +147,7 @@ public/robots.txt            Crawler rules
 public/sitemap.xml           Sitemap halaman docs
 public/site.webmanifest      Web manifest
 scripts/source-guard.mjs     Guard comment dan credential pattern
+scripts/ai-failover.test.mjs Test provider order, prompt forwarding, normalizer, dan fallback
 scripts/site-smoke.mjs       Smoke test output build dan metadata
 .github/workflows/ci.yml     Matrix validation dan artifact build
 .github/workflows/release-check.yml

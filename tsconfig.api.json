@@ -9,8 +9,9 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["api/**/*.ts"]
+  "include": ["api/**/*.ts", "src/data/aiPrompt.ts"]
 }

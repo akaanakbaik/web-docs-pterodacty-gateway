@@ -1,23 +1,22 @@
 import express from "express";
+import { AI_SYSTEM_PROMPT, buildAiPrompt } from "../src/data/aiPrompt.ts";
 
 const app = express();
 app.use(express.json({ limit: "90kb" }));
 
-const PRIMARY_AI_ENDPOINT = "https://xters.us.kg/api/ai/perplexity";
-const FALLBACK_AI_ENDPOINT = "https://www.kitsulabs.xyz/api/v1/perplexity";
-const FALLBACK_API_KEY = process.env.KITSU_API_KEY || "";
 const MAX_QUESTION_LENGTH = 1500;
 const MAX_CONTEXT_LENGTH = 32000;
+const PROVIDER_TIMEOUT_MS = 9000;
+const CUKI_API_KEY = process.env.CUKI_API_KEY || "";
+const FALLBACK_MESSAGE = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
 
 type JsonObject = Record<string, unknown>;
-type ProviderResult = { ok: boolean; answer: string; status: number };
+type ProviderName = "izuka-gemmy" | "cuki-deepseek" | "prexzy-mistral";
+type ProviderResult = { ok: boolean; answer: string; status: number; provider: ProviderName };
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 function cleanText(value: unknown) {
-  return String(value ?? "").replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function compactText(value: string, max = 5200) {
-  return cleanText(value).slice(0, max);
+  return String(value ?? "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function asObject(value: unknown): JsonObject {
@@ -25,114 +24,115 @@ function asObject(value: unknown): JsonObject {
   return value as JsonObject;
 }
 
-function pickPrimaryAnswer(payload: JsonObject) {
-  const data = asObject(payload.data);
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = cleanText(value);
+    if (text && !/^\s*["']?undefined["']?\s+is not valid json\s*$/i.test(text) && !/^\s*(error|exception|internal server error)\b/i.test(text)) return text;
+  }
+  return "";
+}
+
+function pickAnswer(provider: ProviderName, payload: unknown) {
+  if (typeof payload === "string") return firstText(payload);
+  const root = asObject(payload);
+  const data = asObject(root.data);
   const response = asObject(data.response);
-  const choices = Array.isArray(payload.choices) ? payload.choices : [];
-  const first = asObject(choices[0]);
-  const msg = asObject(first.message);
-  return cleanText(msg.content || response.answer || data.answer || payload.answer || payload.result || payload.message);
+  const choices = Array.isArray(root.choices) ? root.choices : [];
+  const firstChoice = asObject(choices[0]);
+  const message = asObject(firstChoice.message);
+  if (root.status === false || Number(root.statusCode) >= 400) return "";
+  if (provider === "izuka-gemmy") return firstText(root.result, root.answer, root.response, root.message, data.result, data.answer);
+  if (provider === "cuki-deepseek") return firstText(response.answer, data.response, root.answer, root.result, root.message);
+  return firstText(root.response, root.answer, root.result, root.message, message.content, data.response, data.answer);
 }
 
-function pickFallbackAnswer(payload: JsonObject) {
-  const data = asObject(payload.data);
-  const response = asObject(data.response);
-  return cleanText(payload.answer || response.answer || data.answer || payload.result || payload.message);
+async function readPayload(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
-function createPrompt(question: string, context: string) {
-  return [
-    "Kamu adalah AI docs assistant untuk Akadev Pterodactyl Gateway.",
-    "Produk: @akaanakbaik/pterodactyl-gateway v1.4.2, SDK TypeScript ESM + CLI + wizard untuk Pterodactyl Panel.",
-    "URL: Web Docs https://pterodacty-gateway.akadev.me | GitHub https://github.com/akaanakbaik/pterodactyl-gateway | npm https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway",
-    "Jawab bahasa Indonesia, singkat, jelas, praktis, dan khusus seputar gateway/Pterodactyl.",
-    "Jika memberi command terminal, tulis dalam fenced code block ```bash ... ```.",
-    "Jika memberi kode TypeScript/JavaScript/JSON/env, tulis dalam fenced code block sesuai jenisnya.",
-    "Jangan taruh command di paragraf biasa. Jangan sebut nama provider/model/API.",
-    "Jangan meminta atau membuka credential asli; minta user sensor token/password/API key.",
-    "Fitur sensitif node/location/allocation tidak tersedia sebagai workflow CLI otomatis; gunakan panel admin atau ptero-gateway ids untuk memilih ID manual.",
-    "Pada v1.4.2, retry otomatis hanya aman untuk method yang idempotent secara default; POST memerlukan retryUnsafe true. Safe mode meminta konfirmasi eksplisit untuk operasi delete. Resolver Nest/Egg tidak memakai fallback ID diam-diam dan pagination membaca seluruh halaman sampai batas aman.",
-    "Context ringkas:",
-    compactText(context),
-    "Pertanyaan:",
-    compactText(question, 1500),
-    "Jawaban:"
-  ].join("\n");
-}
-
-async function readUpstreamJson(response: Response): Promise<JsonObject> {
-  const value: unknown = await response.json().catch(() => ({}));
-  return asObject(value);
-}
-
-async function callPrimary(prompt: string): Promise<ProviderResult> {
-  const query = encodeURIComponent(prompt.slice(0, 6500));
-  const upstream = await fetch(`${PRIMARY_AI_ENDPOINT}?query=${query}`, {
+async function callIzuka(prompt: string, fetchImpl: FetchLike): Promise<ProviderResult> {
+  const form = new FormData();
+  form.set("prompt", prompt);
+  form.set("media", "");
+  const response = await fetchImpl("https://my.izuka-api.xyz/api/ai/gemmy-chat", {
+    method: "POST",
     headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(15000)
+    body: form,
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
   });
-  const data = await readUpstreamJson(upstream);
-  return { ok: upstream.ok, status: upstream.status, answer: pickPrimaryAnswer(data) };
+  const payload = await readPayload(response);
+  return { ok: response.ok, status: response.status, answer: pickAnswer("izuka-gemmy", payload), provider: "izuka-gemmy" };
 }
 
-async function callFallback(prompt: string): Promise<ProviderResult> {
-  const query = encodeURIComponent(prompt.slice(0, 6500));
-  const headers: Record<string, string> = { accept: "application/json" };
-  if (FALLBACK_API_KEY) headers["x-api-key"] = FALLBACK_API_KEY;
-  const upstream = await fetch(`${FALLBACK_AI_ENDPOINT}?query=${query}`, {
-    headers,
-    signal: AbortSignal.timeout(18000)
+async function callCuki(prompt: string, fetchImpl: FetchLike, apiKey: string): Promise<ProviderResult> {
+  const params = new URLSearchParams({ apikey: apiKey, question: prompt });
+  const response = await fetchImpl(`https://api.cuki.biz.id/api/ai/deepseek?${params.toString()}`, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
   });
-  const data = await readUpstreamJson(upstream);
-  return { ok: upstream.ok, status: upstream.status, answer: pickFallbackAnswer(data) };
+  const payload = await readPayload(response);
+  return { ok: response.ok, status: response.status, answer: pickAnswer("cuki-deepseek", payload), provider: "cuki-deepseek" };
 }
 
-async function askWithFallback(prompt: string) {
-  const fallbackText = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
-
-  try {
-    const primary = await callPrimary(prompt);
-    if (primary.ok && primary.answer) return primary.answer;
-    if (primary.answer) return primary.answer;
-  } catch {
-  }
-
-  try {
-    const fallback = await callFallback(prompt);
-    if (fallback.ok && fallback.answer) return fallback.answer;
-    if (fallback.answer) return fallback.answer;
-  } catch {
-  }
-
-  return fallbackText;
+async function callPrexzy(prompt: string, fetchImpl: FetchLike): Promise<ProviderResult> {
+  const params = new URLSearchParams({ prompt });
+  const response = await fetchImpl(`https://prexzyapis.com/ai/mistral?${params.toString()}`, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
+  });
+  const payload = await readPayload(response);
+  return { ok: response.ok, status: response.status, answer: pickAnswer("prexzy-mistral", payload), provider: "prexzy-mistral" };
 }
+
+export async function askWithFailover(question: string, context: string, fetchImpl: FetchLike = fetch, cukiApiKey = CUKI_API_KEY) {
+  const prompt = buildAiPrompt(question, context);
+  const providers: Array<{ name: ProviderName; call: () => Promise<ProviderResult> }> = [
+    { name: "izuka-gemmy", call: () => callIzuka(prompt, fetchImpl) },
+    ...(cukiApiKey ? [{ name: "cuki-deepseek" as const, call: () => callCuki(prompt, fetchImpl, cukiApiKey) }] : []),
+    { name: "prexzy-mistral", call: () => callPrexzy(prompt, fetchImpl) }
+  ];
+  const attempts: Array<{ provider: ProviderName; status: number; ok: boolean }> = [];
+  for (const provider of providers) {
+    try {
+      const result = await provider.call();
+      attempts.push({ provider: provider.name, status: result.status, ok: result.ok && Boolean(result.answer) });
+      if (result.ok && result.answer) return { answer: result.answer, provider: result.provider, attempts };
+    } catch {
+      attempts.push({ provider: provider.name, status: 0, ok: false });
+    }
+  }
+  return { answer: FALLBACK_MESSAGE, provider: null, attempts };
+}
+
+export const __testing = { AI_SYSTEM_PROMPT, buildAiPrompt, pickAnswer, askWithFailover };
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "pterodactyl-gateway-docs" });
+  res.json({ ok: true, service: "pterodactyl-gateway-docs", aiFailover: ["izuka-gemmy", "cuki-deepseek", "prexzy-mistral"] });
 });
 
 app.post("/api/ai", async (req, res) => {
   const question = cleanText(req.body?.question);
   const context = cleanText(req.body?.context);
-
   if (!question) {
     res.status(400).json({ ok: false, answer: "Pertanyaan wajib diisi." });
     return;
   }
-
   if (question.length > MAX_QUESTION_LENGTH) {
     res.status(413).json({ ok: false, answer: `Pertanyaan terlalu panjang. Maksimal ${MAX_QUESTION_LENGTH} karakter.` });
     return;
   }
-
   if (context.length > MAX_CONTEXT_LENGTH) {
     res.status(413).json({ ok: false, answer: "Context dokumentasi terlalu besar. Muat ulang halaman lalu coba lagi." });
     return;
   }
-
-  const prompt = createPrompt(question, context);
-  const answer = await askWithFallback(prompt);
-  res.status(200).json({ ok: true, answer });
+  const result = await askWithFailover(question, context);
+  res.status(200).json({ ok: true, answer: result.answer });
 });
 
 export default app;

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bot, Check, ChevronRight, Code2, Command, Copy, ExternalLink, Github, Heart, Menu, Search, Shield, Sparkles, Trash2, X, Zap } from "lucide-react";
 import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
 import "./styles.css";
@@ -111,9 +111,6 @@ function App() {
   const [routeProgress, setRouteProgress] = useState(0);
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 900], [0, -80]);
-  const y2 = useTransform(scrollY, [0, 900], [0, 64]);
 
   useEffect(() => {
     const handler = () => setRoute(resolveRoute());
@@ -131,16 +128,12 @@ function App() {
     if (path === route.path) return;
     setRouteLoading(true);
     setRouteProgress(12);
-    const tick = window.setInterval(() => setRouteProgress((value) => Math.min(value + 16, 88)), 120);
     window.setTimeout(() => {
       navigateTo(path);
       if (source === "mobile") setMenuOpen(false);
-    }, 460);
-    window.setTimeout(() => {
-      window.clearInterval(tick);
-      setRouteProgress(100);
-      window.setTimeout(() => { setRouteLoading(false); setRouteProgress(0); }, 180);
-    }, 650);
+      setRouteProgress(82);
+    }, 260);
+    window.setTimeout(() => { setRouteProgress(100); window.setTimeout(() => { setRouteLoading(false); setRouteProgress(0); }, 160); }, 390);
   }
 
   function handleSearch(value: string) {
@@ -151,8 +144,8 @@ function App() {
 
   return (
     <div className="app-shell min-h-screen overflow-x-hidden bg-paper text-ink">
-      <motion.div style={{ y: y1 }} className="pointer-events-none fixed left-[-7rem] top-20 h-56 w-56 rounded-full bg-clay/10 blur-3xl sm:h-64 sm:w-64" />
-      <motion.div style={{ y: y2 }} className="pointer-events-none fixed right-[-8rem] top-40 h-56 w-56 rounded-full bg-sage/10 blur-3xl sm:h-72 sm:w-72" />
+      <div className="motion-orb orb-clay pointer-events-none fixed left-[-7rem] top-20 h-56 w-56 rounded-full bg-clay/10 blur-3xl sm:h-64 sm:w-64" />
+      <div className="motion-orb orb-sage pointer-events-none fixed right-[-8rem] top-40 h-56 w-56 rounded-full bg-sage/10 blur-3xl sm:h-72 sm:w-72" />
       <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} routeLoading={routeLoading} routeProgress={routeProgress} goTo={goTo} />
       <main className="relative mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-8 pt-20 sm:px-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-6 lg:pb-12 lg:pt-24">
         <section className="min-w-0 space-y-4 overflow-hidden">
@@ -187,7 +180,7 @@ function Header({ menuOpen, setMenuOpen, routeLoading, routeProgress, goTo }: { 
         </nav>
         <button className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open menu">{menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}</button>
       </div>
-      <AnimatePresence>{routeLoading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[3px] w-full bg-white/5"><motion.div className="h-full bg-gradient-to-r from-clay via-sage to-clay" animate={{ width: `${routeProgress}%` }} transition={{ ease: "easeOut", duration: 0.2 }} /></motion.div>}</AnimatePresence>
+      <AnimatePresence>{routeLoading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[3px] w-full bg-white/5"><div className="route-progress h-full bg-gradient-to-r from-clay via-sage to-clay" style={{ transform: `scaleX(${routeProgress / 100})` }} /></motion.div>}</AnimatePresence>
     </header>
   );
 }
@@ -255,7 +248,7 @@ function DocNavButton({ doc, active, onNavigate }: { doc: DocSection; active: bo
 function DocsPage({ doc, filteredDocs }: { doc: DocSection; filteredDocs: DocSection[] }) {
   return (
     <section className="min-w-0 space-y-4 overflow-hidden">
-      <AnimatePresence mode="wait"><motion.article key={doc.path} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }} className="doc-card premium-card min-w-0 overflow-hidden rounded-[1.6rem] p-4 sm:rounded-[2rem] sm:p-7" data-group={doc.group}>
+      <AnimatePresence mode="wait"><motion.article key={doc.path} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="doc-card premium-card min-w-0 overflow-hidden rounded-[1.6rem] p-4 sm:rounded-[2rem] sm:p-7" data-group={doc.group}>
         <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2"><span className="rounded-full border border-line bg-paper px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">{doc.group}</span><span className="max-w-full truncate rounded-full bg-sage/10 px-2.5 py-1 text-[11px] font-bold text-sage">{doc.path}</span>{doc.tags.slice(0, 3).map((tag) => <span key={tag} className="max-w-full truncate rounded-full bg-clay/10 px-2.5 py-1 text-[11px] font-bold text-clay">{tag}</span>)}</div>
         <h1 className="break-words text-2xl font-extrabold tracking-[-0.035em] sm:text-4xl">{doc.title}</h1>
         <p className="mt-3 text-sm font-semibold leading-7 text-muted sm:text-base">{doc.summary}</p>
@@ -272,7 +265,7 @@ function DocsPage({ doc, filteredDocs }: { doc: DocSection; filteredDocs: DocSec
 }
 
 function TutorialSteps({ steps }: { steps: DocSection["steps"] }) {
-  return <div className="mt-6 grid gap-2"><h2 className="text-lg font-extrabold tracking-[-0.02em]">Langkah tutorial</h2>{steps.map((step, index) => <motion.div key={step.title} initial={{ opacity: 0, x: -8 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.05 }} className="min-w-0 overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-hair"><div className="flex min-w-0 gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-ink text-xs font-extrabold text-white">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="break-words text-sm font-extrabold">{step.title}</h3><p className="mt-1 text-sm leading-6 text-muted">{step.detail}</p>{step.command && <CopyableBlock code={step.command} compact label="command" />}</div></div></motion.div>)}</div>;
+  return <div className="mt-6 grid gap-2"><h2 className="text-lg font-extrabold tracking-[-0.02em]">Langkah tutorial</h2>{steps.map((step, index) => <motion.div key={step.title} initial={{ opacity: 0, x: -6 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "0px 0px -10% 0px" }} transition={{ delay: index * 0.035, duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="min-w-0 overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-hair"><div className="flex min-w-0 gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-ink text-xs font-extrabold text-white">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="break-words text-sm font-extrabold">{step.title}</h3><p className="mt-1 text-sm leading-6 text-muted">{step.detail}</p>{step.command && <CopyableBlock code={step.command} compact label="command" />}</div></div></motion.div>)}</div>;
 }
 
 function TerminalSimulation({ steps }: { steps: SimulationStep[] }) {
@@ -310,10 +303,6 @@ Mode: installed
     }, 42);
     return () => window.clearInterval(iv);
   }, [active, step]);
-  useEffect(() => {
-    const timer = window.setInterval(() => setActive((value) => (value + 1) % Math.max(steps.length, 1)), 5200);
-    return () => window.clearInterval(timer);
-  }, [steps.length]);
   if (!step) return null;
   return <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-line bg-[#0f1117] shadow-soft"><div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400/80" /><span className="h-2.5 w-2.5 rounded-full bg-yellow-300/80" /><span className="h-2.5 w-2.5 rounded-full bg-green-400/80" /><span className="ml-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/45">live debug output</span></div><button onClick={() => navigator.clipboard.writeText(step.terminal)} className="inline-flex items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14"><Copy className="h-3.5 w-3.5" /> Copy cmd</button></div><div className="p-4"><div className="mb-3 flex flex-wrap gap-1.5">{steps.map((item, index) => <button key={item.label} onClick={() => setActive(index)} className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${index === active ? "bg-clay text-white" : "bg-white/8 text-white/55 hover:bg-white/12"}`}>{index + 1}. {item.label}</button>)}</div><div className="rounded-2xl border border-white/15 bg-[#070b14] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"><pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words text-[12px] leading-6 text-[#e7ebf7] scrollbar-thin"><code><span className="text-emerald-300">root@9080d1eda66d18</span><span className="text-white/45">:~# </span>{typed}<span className="terminal-cursor">▍</span>{showOutput ? `
 ${realOutput(step.terminal)}` : ""}</code></pre><div className="my-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="terminal-progress h-full rounded-full bg-clay" /></div></div></div></div>;
@@ -356,7 +345,7 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
     finally { setLoading(false); }
   }
   const suggestions = [`Ringkas ${activeDoc.title}`, "Contoh integrasi Telegram", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara deploy di Vercel"];
-  return <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 18, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.96 }} className="mb-3 w-full max-w-[360px] overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">AI docs assistant</p><h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2></div><div className="flex shrink-0 gap-1.5"><button title="Clear chat" onClick={() => setMessages([defaultAssistant])} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button><button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button></div></div><div className="mt-3 h-[272px] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`min-w-0 rounded-2xl px-3 py-2.5 text-xs leading-6 ${message.role === "user" ? "ml-8 bg-ink text-white" : "mr-0 bg-paper text-muted sm:mr-6"}`}><RichMessage content={message.content} /></div>)}{loading && <div className="mr-6 rounded-2xl bg-paper px-3 py-2.5 text-xs font-semibold text-muted">AI sedang membaca docs...</div>}</div><div className="mt-3 flex gap-2"><input value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && ask()} placeholder="Tanya docs..." className="focus-ring min-w-0 flex-1 rounded-2xl border border-line bg-paper px-3 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70" /><button onClick={() => ask()} disabled={loading} className="focus-ring shrink-0 rounded-2xl bg-ink px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">Ask</button></div><div className="mt-2 flex flex-wrap gap-1.5">{suggestions.map((item) => <button key={item} onClick={() => ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>)}</div></motion.div>}</AnimatePresence><button onClick={() => setOpen((value) => !value)} className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button></div>;
+  return <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 10, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.985 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="mb-3 w-full max-w-[360px] overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">AI docs assistant</p><h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2></div><div className="flex shrink-0 gap-1.5"><button title="Clear chat" onClick={() => setMessages([defaultAssistant])} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button><button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button></div></div><div className="mt-3 h-[272px] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`min-w-0 rounded-2xl px-3 py-2.5 text-xs leading-6 ${message.role === "user" ? "ml-8 bg-ink text-white" : "mr-0 bg-paper text-muted sm:mr-6"}`}><RichMessage content={message.content} /></div>)}{loading && <div className="mr-6 rounded-2xl bg-paper px-3 py-2.5 text-xs font-semibold text-muted">AI sedang membaca docs...</div>}</div><div className="mt-3 flex gap-2"><input value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && ask()} placeholder="Tanya docs..." className="focus-ring min-w-0 flex-1 rounded-2xl border border-line bg-paper px-3 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70" /><button onClick={() => ask()} disabled={loading} className="focus-ring shrink-0 rounded-2xl bg-ink px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">Ask</button></div><div className="mt-2 flex flex-wrap gap-1.5">{suggestions.map((item) => <button key={item} onClick={() => ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>)}</div></motion.div>}</AnimatePresence><button onClick={() => setOpen((value) => !value)} className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button></div>;
 }
 
 function MobileMenu({ open, onClose, ...props }: SidebarProps & { open: boolean; onClose: () => void }) {
