@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 :root {
-  color: #dbe7ff;
-  background: #050a14;
+  color: #152033;
+  background: #f4f0e8;
   font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
-  --ring: rgba(83, 158, 255, 0.45);
+  --ring: rgba(201, 111, 82, 0.6);
 }
 
 * { box-sizing: border-box; }
@@ -16,9 +16,8 @@ html { scroll-behavior: smooth; width: 100%; overflow-x: hidden; }
 body {
   margin: 0; width: 100%; min-width: 320px; min-height: 100vh; overflow-x: hidden;
   background:
-    radial-gradient(circle at 8% -4%, rgba(102, 148, 255, 0.22), transparent 26rem),
-    radial-gradient(circle at 92% 8%, rgba(58, 207, 160, 0.14), transparent 24rem),
-    linear-gradient(170deg, #050a14 0%, #0b1220 48%, #0a101a 100%);
+    linear-gradient(rgba(244, 240, 232, 0.92), rgba(244, 240, 232, 0.92)),
+    url("/manus-storage/pterodactyl-gateway-docs-paper_ccc3167c.jpg") center top / 900px auto repeat;
 }
 #root,.app-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
 button,a,input,textarea,select { -webkit-tap-highlight-color: transparent; }
@@ -36,11 +35,11 @@ img,svg,video,canvas { max-width: 100%; }
 
 .premium-card {
   border: 1px solid rgba(138, 168, 219, 0.28);
-  background: linear-gradient(180deg, rgba(14, 23, 39, 0.93), rgba(10, 17, 30, 0.9));
-  box-shadow: 0 24px 80px rgba(2, 6, 18, 0.5);
+  background: rgba(251, 250, 246, 0.88);
+  box-shadow: 0 24px 80px rgba(35, 37, 42, 0.14);
   backdrop-filter: blur(18px);
 }
-.glass-line { border: 1px solid rgba(129, 157, 209, 0.22); background: rgba(16, 25, 40, 0.9); }
+.glass-line { border: 1px solid rgba(140, 128, 110, 0.24); background: rgba(251, 250, 246, 0.72); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-thin::-webkit-scrollbar { width: 7px; height: 7px; }
@@ -48,8 +47,30 @@ img,svg,video,canvas { max-width: 100%; }
 .sidebar-shell { contain: layout paint; }
 .sidebar-scroll { overscroll-behavior: contain; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
 .focus-ring:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
-.prose-doc p { color: #b6c6e7; line-height: 1.76; overflow-wrap: anywhere; }
-.prose-doc strong { color: #f2f7ff; }
+.prose-doc p { color: #5d6879; line-height: 1.76; overflow-wrap: anywhere; }
+.prose-doc strong { color: #152033; }
+
+.hero-card { position: relative; isolation: isolate; }
+.hero-card::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(180deg, transparent, rgba(251, 250, 246, 0.92)); pointer-events: none; }
+.hero-image { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(251, 250, 246, 0.97) 0%, rgba(251, 250, 246, 0.86) 44%, rgba(251, 250, 246, 0.28) 100%), url("/manus-storage/pterodactyl-gateway-docs-hero_35b036f4.jpg") center / cover; opacity: 0.98; }
+.hero-motif { display: flex; align-items: center; gap: 0.4rem; height: 1.15rem; margin-bottom: 1rem; }
+.hero-motif span { display: block; height: 0.42rem; border-radius: 999px; background: #c96f52; }
+.hero-motif span:nth-child(1) { width: 3rem; }
+.hero-motif span:nth-child(2) { width: 1.2rem; background: #3d8c7a; }
+.hero-motif span:nth-child(3) { width: 0.42rem; }
+.stat-card { border: 1px solid rgba(140, 128, 110, 0.24); border-radius: 1rem; background: rgba(251, 250, 246, 0.76); box-shadow: 0 1px 0 rgba(21, 32, 51, 0.05); }
+.stat-clay { border-top: 3px solid #c96f52; }
+.stat-clay svg { color: #c96f52; }
+.stat-ink { border-top: 3px solid #152033; }
+.stat-ink svg { color: #152033; }
+.stat-sage { border-top: 3px solid #3d8c7a; }
+.stat-sage svg { color: #3d8c7a; }
+.stat-slate { border-top: 3px solid #687083; }
+.stat-slate svg { color: #687083; }
+.doc-card[data-group="Production"] { border-top: 3px solid #c96f52; }
+.doc-card[data-group="Client API"] { border-top: 3px solid #3d8c7a; }
+.doc-card[data-group="SDK"] { border-top: 3px solid #152033; }
+.doc-card[data-group="Integration"] { border-top: 3px solid #687083; }
 
 @media (prefers-reduced-motion: reduce) {
   *,*::before,*::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }

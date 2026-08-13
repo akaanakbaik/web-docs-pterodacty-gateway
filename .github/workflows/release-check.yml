@@ -1,0 +1,38 @@
+name: Documentation Release Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    tags: ["v*", "docs-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run release quality gate
+        run: npm run ci
+      - name: Upload release candidate bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-release-${{ github.sha }}
+          path: dist
+          retention-days: 14

@@ -1,11 +1,11 @@
 {
-  "name": "Akadev Pterodactyl Gateway Docs",
+  "name": "Akadev Pterodactyl Gateway Docs v1.4.2",
   "short_name": "Gateway Docs",
-  "description": "Dokumentasi web untuk @akaanakbaik/pterodactyl-gateway.",
+  "description": "Manual operasional untuk @akaanakbaik/pterodactyl-gateway v1.4.2.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8f7f3",
-  "theme_color": "#f8f7f3",
+  "background_color": "#f4f0e8",
+  "theme_color": "#f4f0e8",
   "icons": [
     {
       "src": "/icon.svg",

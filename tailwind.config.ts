@@ -9,18 +9,18 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       },
       colors: {
-        paper: "#060d19",
-        ink: "#c8ced8",
-        muted: "#98abc9",
-        line: "#233754",
-        card: "#101b2e",
-        clay: "#61a8ff",
-        sage: "#4fd6b0",
-        slate: "#cfddf6"
+        paper: "#f4f0e8",
+        ink: "#152033",
+        muted: "#687083",
+        line: "#d8d0c3",
+        card: "#fbfaf6",
+        clay: "#c96f52",
+        sage: "#3d8c7a",
+        slate: "#435267"
       },
       boxShadow: {
-        soft: "0 24px 80px rgba(0, 0, 0, 0.35)",
-        hair: "0 1px 0 rgba(255, 255, 255, 0.06)"
+        soft: "0 24px 80px rgba(35, 37, 42, 0.14)",
+        hair: "0 1px 0 rgba(21, 32, 51, 0.05)"
       }
     }
   },

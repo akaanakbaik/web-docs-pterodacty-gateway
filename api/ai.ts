@@ -6,6 +6,8 @@ app.use(express.json({ limit: "90kb" }));
 const PRIMARY_AI_ENDPOINT = "https://xters.us.kg/api/ai/perplexity";
 const FALLBACK_AI_ENDPOINT = "https://www.kitsulabs.xyz/api/v1/perplexity";
 const FALLBACK_API_KEY = process.env.KITSU_API_KEY || "";
+const MAX_QUESTION_LENGTH = 1500;
+const MAX_CONTEXT_LENGTH = 32000;
 
 type JsonObject = Record<string, unknown>;
 type ProviderResult = { ok: boolean; answer: string; status: number };
@@ -41,14 +43,15 @@ function pickFallbackAnswer(payload: JsonObject) {
 function createPrompt(question: string, context: string) {
   return [
     "Kamu adalah AI docs assistant untuk Akadev Pterodactyl Gateway.",
-    "Produk: @akaanakbaik/pterodactyl-gateway v1.0.2, SDK TypeScript ESM + CLI + wizard untuk Pterodactyl Panel.",
-    "URL: Web Docs https://web-docs-pterodacty-gateway.vercel.app | GitHub https://github.com/akaanakbaik/pterodactyl-gateway | npm https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway",
+    "Produk: @akaanakbaik/pterodactyl-gateway v1.4.2, SDK TypeScript ESM + CLI + wizard untuk Pterodactyl Panel.",
+    "URL: Web Docs https://pterodacty-gateway.akadev.me | GitHub https://github.com/akaanakbaik/pterodactyl-gateway | npm https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway",
     "Jawab bahasa Indonesia, singkat, jelas, praktis, dan khusus seputar gateway/Pterodactyl.",
     "Jika memberi command terminal, tulis dalam fenced code block ```bash ... ```.",
     "Jika memberi kode TypeScript/JavaScript/JSON/env, tulis dalam fenced code block sesuai jenisnya.",
     "Jangan taruh command di paragraf biasa. Jangan sebut nama provider/model/API.",
     "Jangan meminta atau membuka credential asli; minta user sensor token/password/API key.",
-    "Fitur sensitif node/location/allocation tidak tersedia di CLI stabil; gunakan panel admin atau ptero-gateway ids untuk pilih ID manual.",
+    "Fitur sensitif node/location/allocation tidak tersedia sebagai workflow CLI otomatis; gunakan panel admin atau ptero-gateway ids untuk memilih ID manual.",
+    "Pada v1.4.2, retry otomatis hanya aman untuk method yang idempotent secara default; POST memerlukan retryUnsafe true. Safe mode meminta konfirmasi eksplisit untuk operasi delete. Resolver Nest/Egg tidak memakai fallback ID diam-diam dan pagination membaca seluruh halaman sampai batas aman.",
     "Context ringkas:",
     compactText(context),
     "Pertanyaan:",
@@ -92,7 +95,6 @@ async function askWithFallback(prompt: string) {
     if (primary.ok && primary.answer) return primary.answer;
     if (primary.answer) return primary.answer;
   } catch {
-    // silent fallback
   }
 
   try {
@@ -100,7 +102,6 @@ async function askWithFallback(prompt: string) {
     if (fallback.ok && fallback.answer) return fallback.answer;
     if (fallback.answer) return fallback.answer;
   } catch {
-    // handled below
   }
 
   return fallbackText;
@@ -116,6 +117,16 @@ app.post("/api/ai", async (req, res) => {
 
   if (!question) {
     res.status(400).json({ ok: false, answer: "Pertanyaan wajib diisi." });
+    return;
+  }
+
+  if (question.length > MAX_QUESTION_LENGTH) {
+    res.status(413).json({ ok: false, answer: `Pertanyaan terlalu panjang. Maksimal ${MAX_QUESTION_LENGTH} karakter.` });
+    return;
+  }
+
+  if (context.length > MAX_CONTEXT_LENGTH) {
+    res.status(413).json({ ok: false, answer: "Context dokumentasi terlalu besar. Muat ulang halaman lalu coba lagi." });
     return;
   }
 
