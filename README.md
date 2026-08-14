@@ -51,7 +51,7 @@ Situs memakai navigasi per halaman, search lokal dengan scoring berdasarkan judu
 
 Hero menggunakan ilustrasi system map dan identitas grafis khusus. Code block, terminal simulation, status chip, path label, dan callout memakai material berbeda agar pembaca dapat membedakan instruksi, output, dan warning. Tombol copy memiliki fallback ketika Clipboard API tidak tersedia. Focus ring, label input, `aria-live`, dialog label, serta `prefers-reduced-motion` disiapkan untuk aksesibilitas dasar.
 
-AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi. Endpoint memvalidasi pertanyaan maksimum 1.500 karakter, membatasi context maksimum 32.000 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna.
+AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi yang dikompaksi maksimum 60.000 karakter. Endpoint menerima context sampai 64.000 karakter, memvalidasi pertanyaan maksimum 1.500 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna. Bubble chat merender heading, list, bold, inline code, dan fenced code dengan label input/output yang jelas.
 
 ## Selaras dengan SDK v1.4.2
 
@@ -100,7 +100,7 @@ Atau jalankan semuanya sekaligus:
 npm run ci
 ```
 
-`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta empat test failover AI dengan mock provider. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
+`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta delapan test failover dan API contract dengan mock provider. Test mencakup provider order, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
 
 `npm run build` menghasilkan bundle production pada `dist`. `npm run test:site` memeriksa marker metadata yang harus ada pada `dist/index.html` dan menolak marker versi lama. Smoke test tidak memanggil provider AI dan dapat berjalan deterministik di CI.
 

@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json({ limit: "90kb" }));
 
 const MAX_QUESTION_LENGTH = 1500;
-const MAX_CONTEXT_LENGTH = 32000;
+const MAX_CONTEXT_LENGTH = 64000;
 const PROVIDER_TIMEOUT_MS = 9000;
 const CUKI_API_KEY = process.env.CUKI_API_KEY || "";
 const FALLBACK_MESSAGE = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
@@ -110,28 +110,28 @@ export async function askWithFailover(question: string, context: string, fetchIm
   return { answer: FALLBACK_MESSAGE, provider: null, attempts };
 }
 
-export const __testing = { AI_SYSTEM_PROMPT, buildAiPrompt, pickAnswer, askWithFailover };
+function normalizeRequest(body: unknown) {
+  const input = asObject(body);
+  const question = cleanText(input.question);
+  const context = cleanText(input.context).slice(0, MAX_CONTEXT_LENGTH);
+  if (!question) return { status: 400, question, context, answer: "Pertanyaan wajib diisi." };
+  if (question.length > MAX_QUESTION_LENGTH) return { status: 413, question, context, answer: `Pertanyaan terlalu panjang. Maksimal ${MAX_QUESTION_LENGTH} karakter.` };
+  return { status: 200, question, context, answer: "" };
+}
+
+export const __testing = { AI_SYSTEM_PROMPT, buildAiPrompt, pickAnswer, askWithFailover, normalizeRequest };
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "pterodactyl-gateway-docs", aiFailover: ["izuka-gemmy", "cuki-deepseek", "prexzy-mistral"] });
 });
 
 app.post("/api/ai", async (req, res) => {
-  const question = cleanText(req.body?.question);
-  const context = cleanText(req.body?.context);
-  if (!question) {
-    res.status(400).json({ ok: false, answer: "Pertanyaan wajib diisi." });
+  const request = normalizeRequest(req.body);
+  if (request.status !== 200) {
+    res.status(request.status).json({ ok: false, answer: request.answer });
     return;
   }
-  if (question.length > MAX_QUESTION_LENGTH) {
-    res.status(413).json({ ok: false, answer: `Pertanyaan terlalu panjang. Maksimal ${MAX_QUESTION_LENGTH} karakter.` });
-    return;
-  }
-  if (context.length > MAX_CONTEXT_LENGTH) {
-    res.status(413).json({ ok: false, answer: "Context dokumentasi terlalu besar. Muat ulang halaman lalu coba lagi." });
-    return;
-  }
-  const result = await askWithFailover(question, context);
+  const result = await askWithFailover(request.question, request.context);
   res.status(200).json({ ok: true, answer: result.answer });
 });
 

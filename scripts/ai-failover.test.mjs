@@ -73,3 +73,21 @@ test("provider status false is treated as a failed answer", async () => {
   assert.equal(result.provider, null);
   assert.match(result.answer, /AI assistant sedang tidak tersedia/);
 });
+
+test("oversized context is compacted without rejecting a valid question", () => {
+  const result = __testing.normalizeRequest({ question: "Apa itu retry?", context: "x".repeat(100000) });
+  assert.equal(result.status, 200);
+  assert.equal(result.context.length, 64000);
+  const prompt = __testing.buildAiPrompt(result.question, result.context);
+  assert.match(prompt, /Kamu adalah Akadev Pterodactyl Gateway Docs Assistant/);
+  assert.match(prompt, /Apa itu retry\?/);
+});
+
+test("request validation rejects missing and oversized questions with actionable output", () => {
+  const empty = __testing.normalizeRequest({ question: "   ", context: "docs" });
+  assert.equal(empty.status, 400);
+  assert.match(empty.answer, /wajib diisi/);
+  const oversized = __testing.normalizeRequest({ question: "x".repeat(1501), context: "docs" });
+  assert.equal(oversized.status, 413);
+  assert.match(oversized.answer, /terlalu panjang/);
+});
