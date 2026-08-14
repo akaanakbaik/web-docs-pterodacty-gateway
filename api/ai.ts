@@ -1,5 +1,5 @@
 import express from "express";
-import { AI_SYSTEM_PROMPT, buildAiPrompt } from "../src/data/aiPrompt.ts";
+import { AI_SYSTEM_PROMPT, buildAiPrompt } from "../src/data/aiPrompt.js";
 
 const app = express();
 app.use(express.json({ limit: "90kb" }));
