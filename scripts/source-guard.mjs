@@ -15,13 +15,13 @@ function listSourceFiles(directory, prefix = "") {
 
 let tracked;
 try {
-  tracked = execFileSync("git", ["ls-files"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split("\n").filter(Boolean);
+  tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split("\n").filter(Boolean);
 } catch {
   tracked = listSourceFiles(process.cwd());
 }
 
 tracked = tracked
-  .filter((file) => /\.(ts|tsx|js|jsx|mjs|css|html)$/.test(file))
+  .filter((file) => /\.(ts|tsx|js|jsx|mjs|css|html|md|json|yaml|yml|txt)$/.test(file))
   .filter((file) => !file.startsWith("dist/") && !file.startsWith("node_modules/"))
   .filter((file) => fs.existsSync(path.resolve(file)));
 
@@ -42,7 +42,7 @@ for (const file of tracked) {
   const lines = fs.readFileSync(absolute, "utf8").split("\n");
   lines.forEach((line, index) => {
     const codeOnly = stripStrings(line);
-    if (lineComment.test(codeOnly) || codeOnly.includes(blockComment) || codeOnly.includes(htmlComment)) {
+    if (/\.(ts|tsx|js|jsx|mjs|css|html)$/.test(file) && (lineComment.test(codeOnly) || codeOnly.includes(blockComment) || codeOnly.includes(htmlComment))) {
       violations.push(`${file}:${index + 1}: code comment detected`);
     }
     if (credentialPatterns.some((pattern) => pattern.test(line))) {

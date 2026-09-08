@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bot, Check, ChevronRight, Code2, Command, Copy, ExternalLink, Github, Heart, Menu, Search, Shield, Sparkles, Trash2, X, Zap } from "lucide-react";
-import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
+import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, NPM_VERSION, docs, docsByPath, navGroups, type DocSection, type SimulationStep } from "./data/docs";
 import "./styles.css";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type RouteState = { path: string; doc: DocSection };
+type RouteState = { path: string; doc: DocSection; notFound?: boolean };
 type RichPart = { type: "text"; value: string } | { type: "code"; value: string; title: string };
 
 const defaultAssistant: ChatMessage = { role: "assistant", content: `Halo! Aku AI docs assistant untuk ${PACKAGE_NAME} v${SDK_VERSION}. Tanya install, CLI, SDK, retry, safe mode, file, backup, bot, website API, error, atau release.` };
@@ -19,7 +19,7 @@ function normalize(value: string) {
 function resolveRoute(): RouteState {
   const path = window.location.pathname === "/" ? "/docs/overview" : window.location.pathname;
   const doc = docsByPath.get(path) ?? docsByPath.get("/docs/overview") ?? docs[0];
-  return { path: doc.path, doc };
+  return { path, doc, notFound: !docsByPath.has(path) };
 }
 
 function navigateTo(path: string) {
@@ -119,12 +119,27 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.title = `${route.doc.title} · Pterodactyl Gateway Docs`;
-  }, [route.doc.title]);
+    document.title = route.notFound ? "Halaman tidak ditemukan · Gateway Docs" : `${route.doc.title} · Pterodactyl Gateway Docs`;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", route.doc.summary);
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", `https://pterodacty-gateway.akadev.me${route.path}`);
+    document.querySelector('meta[name="robots"]')?.setAttribute("content", route.notFound ? "noindex" : "index, follow");
+  }, [route.doc.title, route.path, route.notFound]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        Array.from(document.querySelectorAll<HTMLInputElement>('input[aria-label="Cari dokumentasi"]')).find((input) => input.getClientRects().length > 0)?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const filteredDocs = useMemo(() => docs.map((doc) => ({ doc, score: scoreDoc(doc, query) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score).map((entry) => entry.doc), [query]);
 
   function goTo(path: string, source: "desktop" | "mobile" | "default" = "default") {
+    if (source === "mobile") setMenuOpen(false);
     if (path === route.path) return;
     setRouteLoading(true);
     setRouteProgress(12);
@@ -138,8 +153,7 @@ function App() {
 
   function handleSearch(value: string) {
     setQuery(value);
-    const best = docs.map((doc) => ({ doc, score: scoreDoc(doc, value) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score)[0]?.doc;
-    if (value.trim() && best && best.path !== route.path) navigateTo(best.path);
+
   }
 
   return (
@@ -150,9 +164,10 @@ function App() {
       <main className="relative mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-8 pt-20 sm:px-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-6 lg:pb-12 lg:pt-24">
         <section className="min-w-0 space-y-4 overflow-hidden">
           {route.path === "/docs/overview" && <Hero />}
-          <div className="lg:hidden"><SearchBox query={query} setQuery={handleSearch} /></div>
+          <div className="lg:hidden"><SearchBox query={query} setQuery={handleSearch} />{query.trim() && <div className="mt-2 rounded-2xl border border-line bg-card p-2">{filteredDocs.length ? filteredDocs.map((doc) => <DocNavButton key={doc.path} doc={doc} active={doc.path === route.path} onNavigate={(path) => { navigateTo(path); setQuery(""); }} />) : <p role="status" className="p-3 text-sm">Tidak ada hasil. Coba kata lain.</p>}</div>}</div>
+          <p role="note" className="rounded-2xl border border-line bg-card p-3 text-xs leading-6 text-muted">Dokumentasi source v{SDK_VERSION}. npm terverifikasi v{NPM_VERSION} (8 Sep 2026). Build source terpin di halaman Install untuk mengikuti contoh ini.</p>
           <QuickStats />
-          <DocsPage doc={route.doc} filteredDocs={filteredDocs} />
+          {route.notFound ? <section className="doc-card rounded-2xl p-6"><h1 className="text-2xl font-bold">Halaman tidak ditemukan</h1><p className="my-3">Pilih halaman melalui pencarian atau kembali ke pengenalan.</p><button className="focus-ring rounded-xl bg-ink p-3 text-white" onClick={() => goTo("/docs/overview")}>Buka pengenalan</button></section> : <DocsPage doc={route.doc} filteredDocs={filteredDocs} />}
           <Footer />
         </section>
         <aside className="hidden min-w-0 lg:block"><Sidebar query={query} setQuery={handleSearch} activePath={route.path} filteredDocs={filteredDocs} onNavigate={(path) => goTo(path, "desktop")} /></aside>
@@ -168,8 +183,8 @@ function Header({ menuOpen, setMenuOpen, routeLoading, routeProgress, goTo }: { 
     <header className="fixed inset-x-0 top-0 z-40 border-b border-line/80 bg-paper/82 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-3 sm:px-5 lg:px-6">
         <button className="min-w-0 flex items-center gap-2 text-left" onClick={() => goTo("/docs/overview")} aria-label="Akadev Pterodactyl Gateway Docs">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card shadow-hair"><img src="/manus-storage/pterodactyl-gateway-docs-logo_71d25669.png" alt="" className="h-7 w-7 object-contain" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} /></span>
-          <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-extrabold tracking-tight sm:text-base">Pterodactyl Gateway</span><span className="hidden text-[11px] font-medium text-muted sm:block">Stable npm docs · v{SDK_VERSION}</span></span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card shadow-hair"><img src="/icon.svg" alt="" className="h-7 w-7 object-contain" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} /></span>
+          <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-extrabold tracking-tight sm:text-base">Pterodactyl Gateway</span><span className="hidden text-[11px] font-medium text-muted sm:block">Source v{SDK_VERSION} · npm v{NPM_VERSION}</span></span>
         </button>
         <nav className="hidden items-center gap-2 md:flex">
           <button className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" onClick={() => goTo("/docs/install")}>Install</button>
@@ -178,7 +193,7 @@ function Header({ menuOpen, setMenuOpen, routeLoading, routeProgress, goTo }: { 
           <a className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer">npm</a>
           <a className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-2 text-xs font-bold shadow-hair transition hover:border-clay/40" href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer"><Github className="h-3.5 w-3.5" /> GitHub</a>
         </nav>
-        <button className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open menu">{menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}</button>
+        <button className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card lg:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open menu" aria-expanded={menuOpen}>{menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}</button>
       </div>
       <AnimatePresence>{routeLoading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[3px] w-full bg-white/5"><div className="route-progress h-full bg-gradient-to-r from-clay via-sage to-clay" style={{ transform: `scaleX(${routeProgress / 100})` }} /></motion.div>}</AnimatePresence>
     </header>
@@ -192,7 +207,7 @@ function Hero() {
       <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.52fr)] lg:items-end">
         <div className="max-w-3xl">
           <div className="hero-motif" aria-hidden="true"><span /><span /><span /></div>
-          <div className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-card/88 px-3 py-1.5 text-xs font-bold text-slate shadow-hair"><Sparkles className="h-3.5 w-3.5 shrink-0 text-clay" /><span className="truncate">npm stable v{SDK_VERSION} · field-tested docs</span></div>
+          <div className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-card/88 px-3 py-1.5 text-xs font-bold text-slate shadow-hair"><Sparkles className="h-3.5 w-3.5 shrink-0 text-clay" /><span className="truncate">Source v{SDK_VERSION} · npm v{NPM_VERSION}</span></div>
           <h1 className="max-w-3xl text-3xl font-extrabold tracking-[-0.045em] text-ink sm:text-5xl lg:text-6xl">Dari API key ke panel yang bisa diuji.</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">Manual operasional untuk SDK TypeScript, CLI, provisioning, file manager, retry safety, safe mode, integrasi bot, dan deployment backend Pterodactyl.</p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -201,8 +216,8 @@ function Hero() {
           </div>
         </div>
         <div className="hidden overflow-hidden rounded-[1.35rem] border border-line/80 bg-card/88 p-2 shadow-soft lg:block">
-          <img src="/manus-storage/pterodactyl-gateway-docs-system_25489541.jpg" alt="Diagram abstrak hubungan API, CLI, dan server" className="aspect-[4/3] w-full rounded-[1rem] object-cover opacity-90" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} />
-          <div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted"><span>system map</span><span className="text-sage">verified</span></div>
+          <img src="/icon.svg" alt="Diagram abstrak hubungan API, CLI, dan server" className="aspect-[4/3] w-full rounded-[1rem] object-cover opacity-90" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} />
+          <div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted"><span>system map</span><span className="text-sage">SDK · CLI · API</span></div>
         </div>
       </div>
     </section>
@@ -212,7 +227,7 @@ function Hero() {
 function QuickStats() {
   const items = [
     { icon: Code2, label: "Docs", value: "operational map", tone: "clay", action: () => navigateTo("/docs/overview") },
-    { icon: Command, label: "Install", value: "npm v1.4.2", tone: "ink", action: () => navigateTo("/docs/install") },
+    { icon: Command, label: "Install", value: `source v${SDK_VERSION}`, tone: "ink", action: () => navigateTo("/docs/install") },
     { icon: Bot, label: "Assistant", value: "docs-aware", tone: "sage", action: () => window.dispatchEvent(new Event("open-ai")) },
     { icon: Shield, label: "Guard", value: "safe by default", tone: "slate", action: () => navigateTo("/docs/security") }
   ];
@@ -230,6 +245,7 @@ function Sidebar(props: SidebarProps) {
   return (
     <div className="sidebar-shell sticky top-24 max-h-[calc(100vh-7rem)] overflow-hidden rounded-[1.5rem] border border-line bg-card/88 p-3 shadow-soft backdrop-blur-xl">
       <SearchBox query={props.query} setQuery={props.setQuery} />
+      {list.length === 0 && <p role="status" className="p-3 text-sm text-muted">Tidak ada hasil. Coba kata lain atau hapus pencarian.</p>}
       <div className="sidebar-scroll mt-3 max-h-[calc(100vh-13rem)] space-y-4 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
         {navGroups.filter((group) => group !== "Legal").map((group) => <div key={group}><p className="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">{group}</p><div className="space-y-1">{list.filter((doc) => doc.group === group).map((doc) => <DocNavButton key={doc.path} doc={doc} active={doc.path === props.activePath} onNavigate={props.onNavigate} />)}</div></div>)}
       </div>
@@ -242,7 +258,7 @@ function SearchBox({ query, setQuery }: { query: string; setQuery: (value: strin
 }
 
 function DocNavButton({ doc, active, onNavigate }: { doc: DocSection; active: boolean; onNavigate?: (path: string) => void }) {
-  return <button onClick={() => (onNavigate ? onNavigate(doc.path) : navigateTo(doc.path))} className={`focus-ring w-full min-w-0 rounded-2xl px-3 py-2.5 text-left transition ${active ? "bg-ink text-white shadow-soft" : "text-muted hover:bg-paper hover:text-ink"}`}><span className="flex min-w-0 items-center justify-between gap-2 text-xs font-extrabold"><span className="min-w-0 truncate">{doc.title}</span><ChevronRight className="h-3.5 w-3.5 shrink-0" /></span><span className={`mt-1 line-clamp-2 block text-[11px] leading-5 ${active ? "text-white/72" : "text-muted"}`}>{doc.summary}</span></button>;
+  return <button aria-current={active ? "page" : undefined} onClick={() => (onNavigate ? onNavigate(doc.path) : navigateTo(doc.path))} className={`focus-ring w-full min-w-0 rounded-2xl px-3 py-2.5 text-left transition ${active ? "bg-ink text-white shadow-soft" : "text-muted hover:bg-paper hover:text-ink"}`}><span className="flex min-w-0 items-center justify-between gap-2 text-xs font-extrabold"><span className="min-w-0 truncate">{doc.title}</span><ChevronRight className="h-3.5 w-3.5 shrink-0" /></span><span className={`mt-1 line-clamp-2 block text-[11px] leading-5 ${active ? "text-white/72" : "text-muted"}`}>{doc.summary}</span></button>;
 }
 
 function DocsPage({ doc, filteredDocs }: { doc: DocSection; filteredDocs: DocSection[] }) {
@@ -273,39 +289,21 @@ function TerminalSimulation({ steps }: { steps: SimulationStep[] }) {
   const [typed, setTyped] = useState("");
   const [showOutput, setShowOutput] = useState(false);
   const step = steps[active] ?? steps[0];
-  const realOutput = (command: string) => {
-    const cmd = command.toLowerCase();
-    if (cmd.includes("self-check") || cmd.includes("version")) return `ptero-gateway self-check
-@akaanakbaik/pterodactyl-gateway@${SDK_VERSION}
-Self-check: OK
-Mode: installed
-✓ package.json: /usr/lib/node_modules/@akaanakbaik/pterodactyl-gateway/package.json
-✓ package-lock.json: not included in installed npm package; source-only check skipped
-✓ name: @akaanakbaik/pterodactyl-gateway
-✓ version: ${SDK_VERSION}
-✓ lock version: skipped
-✓ root lock version: skipped
-✓ bin ptero-gateway: dist/cli-entry.js
-✓ bin ptg: dist/cli-entry.js
-✓ bin ptero-wizard: dist/wizard-cli.js
-✓ prepublishOnly: npm run verify
-✓ node >=18: v22.22.2`;
-    if (cmd.includes("npm i") || cmd.includes("npm install")) return "added 1 package in 1s\nfound 0 vulnerabilities";
-    return step?.result ?? "Command completed successfully.";
-  };
   useEffect(() => {
     if (!step) return;
     setTyped(""); setShowOutput(false);
     let i = 0;
+    let outputTimer: number | undefined;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setTyped(step.terminal); setShowOutput(true); return; }
     const iv = window.setInterval(() => {
       i += 1; setTyped(step.terminal.slice(0, i));
-      if (i >= step.terminal.length) { window.clearInterval(iv); window.setTimeout(() => setShowOutput(true), 520); }
+      if (i >= step.terminal.length) { window.clearInterval(iv); outputTimer = window.setTimeout(() => setShowOutput(true), 520); }
     }, 42);
-    return () => window.clearInterval(iv);
+    return () => { window.clearInterval(iv); window.clearTimeout(outputTimer); };
   }, [active, step]);
   if (!step) return null;
-  return <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-line bg-[#0f1117] shadow-soft"><div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400/80" /><span className="h-2.5 w-2.5 rounded-full bg-yellow-300/80" /><span className="h-2.5 w-2.5 rounded-full bg-green-400/80" /><span className="ml-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/45">live debug output</span></div><button onClick={() => navigator.clipboard.writeText(step.terminal)} className="inline-flex items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14"><Copy className="h-3.5 w-3.5" /> Copy cmd</button></div><div className="p-4"><div className="mb-3 flex flex-wrap gap-1.5">{steps.map((item, index) => <button key={item.label} onClick={() => setActive(index)} className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${index === active ? "bg-clay text-white" : "bg-white/8 text-white/55 hover:bg-white/12"}`}>{index + 1}. {item.label}</button>)}</div><div className="rounded-2xl border border-white/15 bg-[#070b14] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"><pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words text-[12px] leading-6 text-[#e7ebf7] scrollbar-thin"><code><span className="text-emerald-300">root@9080d1eda66d18</span><span className="text-white/45">:~# </span>{typed}<span className="terminal-cursor">▍</span>{showOutput ? `
-${realOutput(step.terminal)}` : ""}</code></pre><div className="my-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="terminal-progress h-full rounded-full bg-clay" /></div></div></div></div>;
+  return <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-line bg-[#0f1117] shadow-soft"><div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400/80" /><span className="h-2.5 w-2.5 rounded-full bg-yellow-300/80" /><span className="h-2.5 w-2.5 rounded-full bg-green-400/80" /><span className="ml-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/45">Simulasi · bukan respons panel</span></div><CopyButton code={step.terminal} /></div><div className="p-4"><div className="mb-3 flex flex-wrap gap-1.5">{steps.map((item, index) => <button key={item.label} onClick={() => setActive(index)} className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${index === active ? "bg-clay text-white" : "bg-white/8 text-white/55 hover:bg-white/12"}`}>{index + 1}. {item.label}</button>)}</div><div className="rounded-2xl border border-white/15 bg-[#070b14] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"><pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words text-[12px] leading-6 text-[#e7ebf7] scrollbar-thin"><code><span className="text-emerald-300">user@example</span><span className="text-white/45">:~# </span>{typed}<span className="terminal-cursor">▍</span>{showOutput ? `
+${step.result}` : ""}</code></pre><div className="my-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="terminal-progress h-full rounded-full bg-clay" /></div></div></div></div>;
 }
 
 function Examples({ examples }: { examples: DocSection["examples"] }) {
@@ -317,10 +315,33 @@ function NextDocs({ current, filteredDocs }: { current: DocSection; filteredDocs
   return <div className="grid min-w-0 gap-2 md:grid-cols-2">{related.map((doc) => <button key={doc.path} onClick={() => navigateTo(doc.path)} className="glass-line focus-ring min-w-0 rounded-2xl p-4 text-left transition hover:border-clay/40 hover:bg-card"><p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">{doc.group}</p><h3 className="mt-2 break-words text-sm font-extrabold text-ink">{doc.title}</h3><p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">{doc.summary}</p></button>)}</div>;
 }
 
+function CopyButton({ code }: { code: string }) {
+  const [status, setStatus] = useState("Copy");
+  const timer = useRef<number>();
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  async function copy() {
+    try {
+      try { await navigator.clipboard.writeText(code); }
+      catch {
+        const previous = document.activeElement;
+        const field = document.createElement("textarea");
+        field.value = code;
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.append(field);
+        try { field.select(); if (!document.execCommand("copy")) throw new Error("copy unavailable"); }
+        finally { field.remove(); if (previous instanceof HTMLElement) previous.focus(); }
+      }
+      setStatus("Copied");
+    } catch { setStatus("Gagal, salin manual"); }
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setStatus("Copy"), 1800);
+  }
+  return <button onClick={copy} aria-live="polite" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14">{status === "Copied" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {status}</button>;
+}
+
 function CopyableBlock({ code, label = "code", compact = false }: { code: string; label?: string; compact?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1400); }
-  return <div className={`${compact ? "mt-3" : "mt-4"} min-w-0 overflow-hidden rounded-2xl border border-line bg-[#0d1421] shadow-soft`}><div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2"><span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">{label}</span><button onClick={copy} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}</button></div><pre className={`${compact ? "max-h-48" : "max-h-[420px]"} max-w-full overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-6 text-[#dde7ff] scrollbar-thin`}><code>{code}</code></pre></div>;
+  return <div className={`${compact ? "mt-3" : "mt-4"} min-w-0 overflow-hidden rounded-2xl border border-line bg-[#0d1421] shadow-soft`}><div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2"><span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">{label}</span><CopyButton code={code} /></div><pre className={`${compact ? "max-h-48" : "max-h-[420px]"} max-w-full overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-6 text-[#dde7ff] scrollbar-thin`}><code>{code}</code></pre></div>;
 }
 
 function renderInline(value: string) {
@@ -332,16 +353,27 @@ function renderInline(value: string) {
 }
 
 function MarkdownText({ value }: { value: string }) {
-  return <div className="assistant-markdown">{value.split("\n").map((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) return <div key={`space-${index}`} className="h-1.5" />;
-    if (trimmed.startsWith("### ")) return <h4 key={index}>{renderInline(trimmed.slice(4))}</h4>;
-    if (trimmed.startsWith("## ")) return <h3 key={index}>{renderInline(trimmed.slice(3))}</h3>;
-    if (trimmed.startsWith("# ")) return <h3 key={index}>{renderInline(trimmed.slice(2))}</h3>;
-    if (/^[-*]\s+/.test(trimmed)) return <div key={index} className="assistant-list-row"><span className="assistant-list-mark">•</span><span>{renderInline(trimmed.replace(/^[-*]\s+/, ""))}</span></div>;
-    if (/^\d+\.\s+/.test(trimmed)) return <div key={index} className="assistant-list-row"><span className="assistant-list-mark">{trimmed.match(/^\d+/)?.[0]}</span><span>{renderInline(trimmed.replace(/^\d+\.\s+/, ""))}</span></div>;
-    return <p key={index}>{renderInline(trimmed)}</p>;
-  })}</div>;
+  const lines = value.split("\n");
+  const blocks: React.ReactNode[] = [];
+  const cells = (line: string) => line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+  for (let index = 0; index < lines.length; index++) {
+    const trimmed = lines[index].trim();
+    const separator = lines[index + 1]?.trim();
+    if (trimmed.startsWith("|") && separator?.includes("|") && cells(separator).every((cell) => /^:?-{3,}:?$/.test(cell))) {
+      const headings = cells(trimmed);
+      const rows: string[][] = [];
+      index += 2;
+      while (index < lines.length && lines[index].trim().startsWith("|")) { rows.push(cells(lines[index])); index++; }
+      index--;
+      blocks.push(<div key={`table-${index}`} className="max-w-full overflow-x-auto"><table className="w-full border-collapse text-xs"><thead><tr>{headings.map((cell, column) => <th key={column} className="border border-line p-2 text-left">{renderInline(cell)}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{headings.map((_, column) => <td key={column} className="border border-line p-2">{renderInline(row[column] ?? "")}</td>)}</tr>)}</tbody></table></div>);
+    } else if (!trimmed) blocks.push(<div key={index} className="h-1.5" />);
+    else if (/^#{1,3} /.test(trimmed)) blocks.push(<h3 key={index}>{renderInline(trimmed.replace(/^#{1,3} /, ""))}</h3>);
+    else if (/^[-*]\s+/.test(trimmed)) blocks.push(<div key={index} className="assistant-list-row"><span className="assistant-list-mark">•</span><span>{renderInline(trimmed.replace(/^[-*]\s+/, ""))}</span></div>);
+    else if (/^\d+\.\s+/.test(trimmed)) blocks.push(<div key={index} className="assistant-list-row"><span className="assistant-list-mark">{trimmed.match(/^\d+/)?.[0]}</span><span>{renderInline(trimmed.replace(/^\d+\.\s+/, ""))}</span></div>);
+    else if (/^-{3,}$/.test(trimmed)) blocks.push(<hr key={index} className="border-line" />);
+    else blocks.push(<p key={index}>{renderInline(trimmed)}</p>);
+  }
+  return <div className="assistant-markdown">{blocks}</div>;
 }
 
 function RichMessage({ content }: { content: string }) {
@@ -352,7 +384,8 @@ async function readAiResponse(response: Response): Promise<{ answer?: string }> 
   const raw = await response.text();
   if (!raw.trim()) return {};
   try {
-    return JSON.parse(raw) as { answer?: string };
+    const value: unknown = JSON.parse(raw);
+    return value && typeof value === "object" && "answer" in value && typeof value.answer === "string" ? { answer: value.answer } : {};
   } catch {
     return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "AI sedang tidak tersedia. Gunakan search lokal atau baca halaman troubleshooting." };
   }
@@ -363,13 +396,21 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([defaultAssistant]);
+  const conversation = useRef<HTMLDivElement>(null);
+  useEffect(() => { conversation.current?.scrollTo({ top: conversation.current.scrollHeight }); }, [messages, loading]);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open]);
   useEffect(() => { const handler = () => setOpen(true); window.addEventListener("open-ai", handler); return () => window.removeEventListener("open-ai", handler); }, []);
   async function ask(customQuestion?: string) {
     const text = (customQuestion ?? question).trim();
     if (!text || loading) return;
     setOpen(true); setQuestion(""); setMessages((prev) => [...prev, { role: "user", content: text }]); setLoading(true);
     try {
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text, context: knowledgeBase.slice(0, 60000) }) });
+      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(40000), body: JSON.stringify({ question: text }) });
       const data = await readAiResponse(response);
       if (!response.ok) throw new Error(data.answer ?? "AI sedang tidak tersedia.");
       setMessages((prev) => [...prev, { role: "assistant", content: data.answer?.trim() || "AI belum mengembalikan jawaban." }]);
@@ -377,11 +418,20 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
     finally { setLoading(false); }
   }
   const suggestions = [`Ringkas ${activeDoc.title}`, "Contoh integrasi Telegram", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara deploy di Vercel"];
-  return <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 10, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.985 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="mb-3 w-full max-w-[360px] overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">AI docs assistant</p><h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2></div><div className="flex shrink-0 gap-1.5"><button title="Clear chat" onClick={() => setMessages([defaultAssistant])} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button><button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button></div></div><div className="mt-3 h-[272px] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin" aria-live="polite" aria-busy={loading}>{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role === "user" ? "chat-bubble-user ml-8" : "chat-bubble-assistant mr-0 sm:mr-6"}`}><span className="chat-bubble-label">{message.role === "user" ? "Anda" : "AI docs assistant"}</span><RichMessage content={message.content} /></div>)}{loading && <div className="chat-bubble chat-bubble-assistant mr-6"><span className="chat-bubble-label">AI docs assistant</span><div className="chat-loading"><span /> <span /> <span /></div></div>}</div><div className="chat-composer mt-3"><span className="chat-composer-mark" aria-hidden="true">›</span><input aria-label="Tulis pertanyaan ke AI docs assistant" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && ask()} placeholder="Tanya docs..." className="focus-ring min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70" /><button onClick={() => ask()} disabled={loading} className="focus-ring shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ask</button></div><div className="mt-2 flex flex-wrap gap-1.5">{suggestions.map((item) => <button key={item} onClick={() => ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>)}</div></motion.div>}</AnimatePresence><button onClick={() => setOpen((value) => !value)} aria-label="Buka AI docs assistant" className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button></div>;
+  return <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 10, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.985 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="mb-3 w-full max-w-[360px] overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">AI docs assistant</p><h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2></div><div className="flex shrink-0 gap-1.5"><button title="Clear chat" aria-label="Hapus percakapan" disabled={loading} onClick={() => setMessages([defaultAssistant])} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button><button aria-label="Tutup AI assistant" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button></div></div><div ref={conversation} className="mt-3 h-[min(272px,35dvh)] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin" aria-live="polite" aria-busy={loading}>{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role === "user" ? "chat-bubble-user ml-8" : "chat-bubble-assistant mr-0 sm:mr-6"}`}><span className="chat-bubble-label">{message.role === "user" ? "Anda" : "AI docs assistant"}</span><RichMessage content={message.content} /></div>)}{loading && <div className="chat-bubble chat-bubble-assistant mr-6"><span className="chat-bubble-label">AI docs assistant</span><div className="chat-loading"><span /> <span /> <span /></div></div>}</div><p className="mt-2 text-[10px] text-muted">Pertanyaan dikirim ke provider AI. Gunakan placeholder untuk rahasia.</p><div className="chat-composer mt-3"><span className="chat-composer-mark" aria-hidden="true">›</span><input maxLength={1500} aria-label="Tulis pertanyaan ke AI docs assistant" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && ask()} placeholder="Tanya docs..." className="focus-ring min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70" /><button onClick={() => ask()} disabled={loading || !question.trim()} className="focus-ring shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ask</button></div><div className="mt-2 flex flex-wrap gap-1.5">{suggestions.map((item) => <button key={item} onClick={() => ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>)}</div></motion.div>}</AnimatePresence><button onClick={() => setOpen((value) => !value)} aria-label="Buka AI docs assistant" className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button></div>;
 }
 
 function MobileMenu({ open, onClose, ...props }: SidebarProps & { open: boolean; onClose: () => void }) {
-  return <AnimatePresence>{open && <motion.div className="fixed inset-0 z-50 bg-ink/30 p-3 backdrop-blur-sm lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} className="h-full max-w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.5rem] bg-paper p-3 shadow-soft"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-extrabold">Docs menu</span><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-card"><X className="h-4 w-4" /></button></div><Sidebar {...props} activePath={props.activePath} setQuery={props.setQuery} /></motion.div></motion.div>}</AnimatePresence>;
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handler = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => { document.body.style.overflow = overflow; window.removeEventListener("keydown", handler); if (previous instanceof HTMLElement) previous.focus(); };
+  }, [open, onClose]);
+  return <AnimatePresence>{open && <motion.div role="dialog" aria-label="Navigasi dokumentasi" className="fixed inset-0 z-50 bg-ink/30 p-3 backdrop-blur-sm lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} className="h-full max-w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.5rem] bg-paper p-3 shadow-soft"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-extrabold">Docs menu</span><button aria-label="Tutup menu" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-card"><X className="h-4 w-4" /></button></div><Sidebar {...props} activePath={props.activePath} setQuery={props.setQuery} /></motion.div></motion.div>}</AnimatePresence>;
 }
 
 function Footer() {

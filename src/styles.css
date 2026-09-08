@@ -17,7 +17,7 @@ body {
   margin: 0; width: 100%; min-width: 320px; min-height: 100vh; overflow-x: hidden;
   background:
     linear-gradient(rgba(244, 240, 232, 0.92), rgba(244, 240, 232, 0.92)),
-    url("/manus-storage/pterodactyl-gateway-docs-paper_ccc3167c.jpg") center top / 900px auto repeat;
+    radial-gradient(ellipse at top, #f5f0e6, #fbfaf6);
 }
 #root,.app-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
 button,a,input,textarea,select { -webkit-tap-highlight-color: transparent; }
@@ -73,7 +73,7 @@ img,svg,video,canvas { max-width: 100%; }
 
 .hero-card { position: relative; isolation: isolate; }
 .hero-card::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(180deg, transparent, rgba(251, 250, 246, 0.92)); pointer-events: none; }
-.hero-image { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(251, 250, 246, 0.97) 0%, rgba(251, 250, 246, 0.86) 44%, rgba(251, 250, 246, 0.28) 100%), url("/manus-storage/pterodactyl-gateway-docs-hero_35b036f4.jpg") center / cover; opacity: 0.98; }
+.hero-image { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(251, 250, 246, 0.97) 0%, rgba(251, 250, 246, 0.86) 44%, rgba(251, 250, 246, 0.28) 100%); opacity: 0.98; }
 .hero-motif { display: flex; align-items: center; gap: 0.4rem; height: 1.15rem; margin-bottom: 1rem; }
 .hero-motif span { display: block; height: 0.42rem; border-radius: 999px; background: #c96f52; }
 .hero-motif span:nth-child(1) { width: 3rem; }

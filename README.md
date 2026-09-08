@@ -1,25 +1,10 @@
-# Akadev Pterodactyl Gateway Docs Web
+# Akadev Pterodactyl Gateway Docs
 
-[![Documentation CI](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml)
+Website dokumentasi React/Vite dan proxy AI serverless untuk Pterodactyl Gateway.
 
-Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.4.2**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
+**Status versi hasil audit 8 September 2026:** materi mengikuti source GitHub SDK v1.4.2, commit `ee1aa8225023a13c907cccd875d5b30596836dce`. Registry npm baru menyediakan v1.0.3; v1.4.2 belum tersedia melalui npm. Halaman Install menjelaskan build source terpin. Jangan menganggap kedua distribusi identik.
 
-> Situs dokumentasi yang disiapkan: [`https://pterodacty-gateway.akadev.me`](https://pterodacty-gateway.akadev.me)
-
-## Status Kualitas
-
-| Area | Status |
-|---|---|
-| SDK reference | Selaras dengan `@akaanakbaik/pterodactyl-gateway@1.4.2` |
-| Node.js | 18.x, 20.x, dan 22.x |
-| TypeScript | Strict typecheck untuk frontend, config Node, dan `api/ai.ts` |
-| Build | Vite production build tervalidasi |
-| Source guard | Menolak komentar kode dan pola credential pada file ter-track |
-| Site smoke | Memeriksa metadata build, icon, manifest, canonical, dan stale version marker |
-| Dependency audit | Quality gate gagal pada high severity; temuan low tetap dilaporkan untuk pemantauan |
-| AI assistant | Input limit, shared system prompt, failover Izuka/Cuki/Prexzy, timeout upstream, normalizer response, dan fallback lokal |
-
-Dokumentasi situs adalah lapisan frontend dan serverless AI proxy. Semua operasi Pterodactyl asli tetap dilakukan oleh backend atau CLI package utama. Situs ini tidak menyimpan atau meminta credential panel.
+Situs tidak melakukan operasi panel dan tidak membutuhkan PTLA/PTLC di browser. Semua terminal di halaman merupakan simulasi yang diberi label jelas.
 
 ## Cakupan Halaman
 
@@ -28,7 +13,7 @@ Dokumentasi situs adalah lapisan frontend dan serverless AI proxy. Semua operasi
 | `/docs/overview` | Model SDK, CLI, wizard, mode koneksi, dan jalur belajar |
 | `/docs/install` | Node.js, npm, self-check, dan doctor |
 | `/docs/config` | Domain, PTLA, PTLC, profile, safe mode, dan retry |
-| `/docs/cli-create-server` | IDs, dry-run, create user/server, probe, dan cleanup |
+| `/docs/cli-create-server` | CLI yang tersedia dan provisioning melalui SDK |
 | `/docs/sdk` | `createPtero`, preview, create, handle, error, dan typed response |
 | `/docs/http-safety` | Retry safe method, `retryUnsafe`, `Retry-After`, backoff, dan idempotency |
 | `/docs/api-surface` | Application API, Client API, generic types, resolver, dan pagination |
@@ -45,134 +30,72 @@ Dokumentasi situs adalah lapisan frontend dan serverless AI proxy. Semua operasi
 | `/privacy` | Pemrosesan search lokal dan AI assistant |
 | `/terms` | Syarat penggunaan dan tanggung jawab operator |
 
-## Fitur Situs
-
-Situs memakai navigasi per halaman, search lokal dengan scoring berdasarkan judul, path, tag, isi, command, dan contoh kode, serta perpindahan route tanpa full page reload. Sidebar desktop berubah menjadi menu drawer pada mobile dan menyediakan escape route ke halaman lain.
-
-Hero menggunakan ilustrasi system map dan identitas grafis khusus. Code block, terminal simulation, status chip, path label, dan callout memakai material berbeda agar pembaca dapat membedakan instruksi, output, dan warning. Tombol copy memiliki fallback ketika Clipboard API tidak tersedia. Focus ring, label input, `aria-live`, dialog label, serta `prefers-reduced-motion` disiapkan untuk aksesibilitas dasar.
-
-AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi yang dikompaksi maksimum 60.000 karakter. Endpoint menerima context sampai 64.000 karakter, memvalidasi pertanyaan maksimum 1.500 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna. Bubble chat merender heading, list, bold, inline code, dan fenced code dengan label input/output yang jelas.
-
-## Selaras dengan SDK v1.4.2
-
-Materi situs mengikuti perubahan utama pada SDK utama:
-
-| Perubahan SDK | Perlakuan di dokumentasi |
-|---|---|
-| Retry hanya untuk method aman secara default | Dijelaskan pada halaman HTTP safety, termasuk `retryUnsafe` untuk POST yang benar-benar idempotent |
-| Safe mode meminta konfirmasi delete | Contoh memakai boolean confirmation untuk user, server, dan allocation |
-| Resolver Nest/Egg tidak fallback diam-diam | Docs mengarahkan pencarian berdasarkan nama atau default eksplisit |
-| Pagination membaca seluruh halaman sampai batas aman | Dijelaskan bersama `PteroPagination`, `PteroCollection`, dan resolver |
-| Download file menggunakan endpoint yang benar | Diberi contoh `server.files.download()` dan guard HTML fallback |
-| WebSocket Node.js memakai Origin dan menunggu open | Dijelaskan pada file, backup, dan WebSocket |
-| `changeNestEgg` memiliki image dan skip scripts | Dicakup pada API reference dan provisioning guidance |
-| SMTP wajib eksplisit | Halaman email menjelaskan host, port, username, password, recipient guard, dan retention |
-| API `updateInventory()` tidak digunakan | Docs hanya memakai facade yang tersedia pada v1.4.2 |
-| Generic response types tersedia | Contoh memakai `PteroResource`, `PteroCollection`, dan `PteroPagination` |
-
-## Stack
-
-Project ini menggunakan Vite, React 18, TypeScript ESM, Tailwind CSS 3, Express serverless route, Framer Motion, dan Lucide Icons. Hosting Vercel tetap didukung melalui `vercel.json`, sedangkan workflow CI berjalan pada Node.js 18, 20, dan 22.
-
-## Instalasi Lokal
+## Menjalankan lokal
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Buka `http://localhost:5173` pada browser.
-
-## Quality Gate Lokal
-
-Jalankan pemeriksaan yang sama dengan workflow CI:
+Web tersedia di port 5173. Untuk AI, isi `CUKI_API_KEY` pada environment shell privat lalu jalankan terminal kedua:
 
 ```bash
-npm run check
-npm run build
-npm run test:site
-npm audit --audit-level=high
+npm run dev:api
 ```
 
-Atau jalankan semuanya sekaligus:
+Vite meneruskan `/api` ke API lokal pada port 3001. `.env.example` mendokumentasikan nama variabel; script Node tidak otomatis membaca `.env.local`. Jangan memakai variabel `VITE_*` untuk key.
+
+## AI
+
+Frontend mengirim `{ question }` ke `POST /api/ai`. Backend memilih konteks dari dokumentasi terpercaya berdasarkan relevansi, bukan context bebas dari browser. Pertanyaan dibatasi 1.500 karakter; prompt keseluruhan maksimum 4.000 karakter sesuai batas Cuki yang diverifikasi langsung.
+
+Urutan provider: Cuki DeepSeek ketika `CUKI_API_KEY` terkonfigurasi, kemudian Izuka Gemmy, kemudian Prexzy Mistral. Cuki memakai endpoint `https://api.cuki.biz.id/api/ai/deepseek` dengan parameter `apikey` dan `question`. Key hanya dibaca dari environment server. Timeout Cuki 20 detik; fallback masing-masing 8 detik; frontend 40 detik. Batas fungsi hosting 45 detik.
+
+Respons sukses: HTTP 200, `{ ok: true, answer, provider }`. Jika semua provider gagal: HTTP 503, `{ ok: false, answer, provider: null }`, dengan arahan ke pencarian lokal. Input tidak valid menghasilkan 400/413, method selain POST 405, dan kapasitas instance penuh 429 dengan Retry-After.
+
+Parser hanya menerima jawaban string, menolak HTML/error/object kosong, serta membatasi respons upstream 128 KB. Pola token panel/GitHub/Bearer disensor sebelum diteruskan. Penyensoran pola bukan jaminan untuk semua jenis rahasia: pengguna tetap harus memakai placeholder. Header no-store mencegah caching jawaban pribadi.
+
+Batas delapan panggilan aktif berlaku **per instance**, bukan rate limit terdistribusi. Hosting tetap perlu firewall/rate limit global untuk perlindungan abuse lintas instance. Jawaban AI probabilistik; signature penting dicantumkan dalam prompt dan jawaban harus dibandingkan dengan referensi SDK.
+
+## Fitur antarmuka
+
+- 19 halaman, SPA navigation, history browser, title/description/canonical sesuai route.
+- Search lokal dengan scoring judul, tag, path, isi, langkah, dan kode; Ctrl/Cmd+K; hasil mobile dan status kosong. Mengetik tidak mengubah history.
+- Menu desktop/tablet/mobile, Escape untuk menutup menu, scroll lock, label kontrol, dan indikator halaman aktif.
+- Copy dengan Clipboard API, fallback, dan status kegagalan; output terminal menggunakan data contoh asli tanpa status sukses buatan.
+- AI assistant dengan batas input, timeout, suggestion berdasarkan halaman, auto-scroll, clear chat, rich text/code, dan Escape.
+- Semua gambar memakai asset yang tersedia; tidak ada referensi `/manus-storage` yang hilang.
+
+## Koreksi referensi SDK
+
+- Preview/create smart memakai `ptero.smart.servers`, sedangkan `application.servers.create` menerima payload mentah.
+- Schedule memakai `setName`, `setCron`, `addTask`, dan `save`.
+- Raw path `/servers` sudah diberi prefix API oleh SDK.
+- `resources()` mengembalikan envelope; state berada pada `attributes.current_state`.
+- Backup email memakai `ptero.exportAndEmailBackup(serverId, targetEmail, smtpConfig)`.
+- Pada source v1.4.2, preview/dryRun masih dapat membuat user bila `autoCreateUser` aktif. Gunakan user yang sudah ada dan `autoCreateUser: false` untuk operasi baca.
+- Pada source v1.4.2, `application.servers.delete(id, true)` juga berarti **force delete**.
+- CLI source mengiklankan `admin`, `ids`, dan `probe` tetapi dispatcher tidak mengimplementasikannya. Gunakan facade SDK untuk fungsi tersebut.
+
+## Pengujian
 
 ```bash
 npm run ci
 ```
 
-`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta delapan test failover dan API contract dengan mock provider. Test mencakup provider order, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
+Quality gate menjalankan typecheck, source/secret scan, regression AI dan HTTP melalui socket lokal, production build, metadata smoke, dan audit dependency. GitHub Actions mencakup Node.js 18/20/22/24. Source guard mencakup file tracked dan untracked yang tidak diabaikan Git; pola rahasia juga diperiksa pada Markdown, JSON, dan workflow.
 
-`npm run build` menghasilkan bundle production pada `dist`. `npm run test:site` memeriksa marker metadata yang harus ada pada `dist/index.html` dan menolak marker versi lama. Smoke test tidak memanggil provider AI dan dapat berjalan deterministik di CI.
+Bukti pengujian, inventaris, serta batas cakupan ada di [AUDIT.md](AUDIT.md). Data panel mentah, API key, dan percakapan privat tidak disimpan sebagai artifact atau laporan.
 
-## GitHub Actions
+## Hosting
 
-`Documentation CI` berjalan pada push ke `main`, pull request menuju `main`, dan manual dispatch. Workflow memakai concurrency cancellation, timeout, npm lockfile cache, permission read-only, matrix Node.js 18/20/22, quality gate, production build, dan artifact retention tujuh hari.
+Vercel: framework Vite, install `npm ci`, build `npm run build`, output `dist`. Set `CUKI_API_KEY` pada environment **Production**, kemudian redeploy. `/api/health` melaporkan urutan provider yang terkonfigurasi, bukan hasil probe ketersediaan upstream.
 
-`Documentation Release Check` berjalan pada pull request, tag `v*` atau `docs-v*`, dan manual dispatch. Workflow memakai quality gate yang sama serta artifact release candidate dengan retention empat belas hari.
+Header nosniff, frame denial, referrer policy, dan permissions policy dikonfigurasi di `vercel.json`. Perubahan environment baru berlaku pada deployment berikutnya.
 
-Workflow AI auto-fix lama tidak digunakan. Perubahan ini disengaja agar tidak ada command atau file yang dieksekusi berdasarkan output provider eksternal dan agar seluruh perbaikan tetap melalui review diff serta quality gate deterministik.
+## Sumber
 
-## Deploy Vercel
-
-Repo ini memiliki `vercel.json` dengan framework Vite, build command `npm run build`, output directory `dist`, dan install command `npm install`. Route SPA diarahkan ke `index.html`; route `/api/ai` tetap tersedia sebagai serverless function sesuai konfigurasi platform.
-
-Pengaturan yang disarankan:
-
-```text
-Framework Preset: Vite
-Build Command: npm run build
-Output Directory: dist
-Install Command: npm ci
-```
-
-Endpoint health tersedia pada:
-
-```text
-GET /api/health
-```
-
-Jika provider Cuki digunakan, set `CUKI_API_KEY` hanya melalui environment secret hosting. Jangan menaruh key pada `VITE_*`, source frontend, `README.md`, atau workflow log. Izuka dan Prexzy tidak memerlukan key pada implementation ini.
-
-## Struktur Repositori
-
-```text
-api/ai.ts                    Serverless AI endpoint, shared prompt, failover, validation, timeout
-src/data/docs.ts             Knowledge base v1.4.2 dan route content
-src/data/aiPrompt.ts        Shared system prompt dan prompt builder
-src/data/ai.ts               Knowledge base prompt lokal assistant
-src/main.tsx                 Router SPA, search, docs UI, terminal, assistant
-src/styles.css               Material, theme, responsive, motion, focus ring
-public/icon.svg              Favicon dan icon deployment
-public/robots.txt            Crawler rules
-public/sitemap.xml           Sitemap halaman docs
-public/site.webmanifest      Web manifest
-scripts/source-guard.mjs     Guard comment dan credential pattern
-scripts/ai-failover.test.mjs Test provider order, prompt forwarding, normalizer, dan fallback
-scripts/site-smoke.mjs       Smoke test output build dan metadata
-.github/workflows/ci.yml     Matrix validation dan artifact build
-.github/workflows/release-check.yml
-                             Release candidate validation
-vercel.json                  SPA, API route, dan domain redirect
-```
-
-## Catatan Keamanan
-
-Jangan memasukkan PTLA, PTLC, token GitHub, password panel, token bot, SMTP password, atau data user ke source, issue, AI assistant, screenshot, log, maupun artifact. Setelah pengujian panel nyata, cabut atau rotasi seluruh key testing. Gunakan backend untuk seluruh operasi Pterodactyl dan terapkan authentication, authorization, rate limit, payment gate, idempotency, audit log, serta redaction.
-
-## Package Utama
-
-```bash
-npm i @akaanakbaik/pterodactyl-gateway@1.4.2
-npm i -g @akaanakbaik/pterodactyl-gateway@1.4.2
-```
-
-| Resource | URL |
-|---|---|
-| SDK GitHub | https://github.com/akaanakbaik/pterodactyl-gateway |
-| SDK npm | https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway |
-| Docs source | https://github.com/akaanakbaik/web-docs-pterodacty-gateway |
-| Docs production | https://pterodacty-gateway.akadev.me |
-
-## Lisensi
-
-Lisensi project mengikuti file [`LICENSE`](./LICENSE).
+- [Website](https://pterodacty-gateway.akadev.me/)
+- [Source SDK](https://github.com/akaanakbaik/pterodactyl-gateway)
+- [Package npm](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway)
+- [Lisensi](LICENSE)
