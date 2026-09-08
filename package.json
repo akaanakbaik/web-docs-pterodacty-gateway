@@ -11,11 +11,12 @@
     "typecheck": "tsc -b --pretty",
     "typecheck:api": "tsc -p tsconfig.api.json --pretty",
     "test:source": "node scripts/source-guard.mjs",
-    "test:ai": "tsx --test scripts/ai-failover.test.mjs",
+    "test:ai": "tsx --test scripts/ai-failover.test.mjs scripts/api-http.test.mjs",
     "test:site": "node scripts/site-smoke.mjs",
     "check": "npm run typecheck && npm run typecheck:api && npm run test:source && npm run test:ai",
     "ci": "npm run check && npm run build && npm run test:site && npm audit --audit-level=high",
-    "lint": "npm run check"
+    "lint": "npm run check",
+    "dev:api": "tsx scripts/dev-api.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
@@ -39,5 +40,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }

@@ -11,7 +11,7 @@ test("failover uses Izuka first and forwards the shared system prompt", async ()
   const result = await __testing.askWithFailover("Apa itu retry?", "Dokumentasi retry", async (url, init) => {
     calls.push({ url: String(url), init });
     return jsonResponse({ result: "Jawaban Izuka" });
-  }, "cuki-test");
+  }, "");
   assert.equal(result.provider, "izuka-gemmy");
   assert.equal(result.answer, "Jawaban Izuka");
   assert.equal(calls.length, 1);
@@ -23,18 +23,17 @@ test("failover uses Izuka first and forwards the shared system prompt", async ()
   assert.equal(form.get("media"), "");
 });
 
-test("failover moves to Cuki when Izuka returns an error", async () => {
+test("Cuki is primary when configured", async () => {
   const calls = [];
   const result = await __testing.askWithFailover("Jelaskan safe mode", "Docs security", async (url) => {
     calls.push(String(url));
-    if (calls.length === 1) return jsonResponse({ error: "upstream down" }, 503);
     return jsonResponse({ data: { response: "Jawaban Cuki" } });
   }, "cuki-test");
   assert.equal(result.provider, "cuki-deepseek");
   assert.equal(result.answer, "Jawaban Cuki");
-  assert.equal(calls.length, 2);
-  assert.match(calls[1], /api\.cuki\.biz\.id\/api\/ai\/deepseek/);
-  assert.match(decodeURIComponent(calls[1].replace(/\+/g, " ")), /Jelaskan safe mode/);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /api\.cuki\.biz\.id\/api\/ai\/deepseek/);
+  assert.match(decodeURIComponent(calls[0].replace(/\+/g, " ")), /Jelaskan safe mode/);
 });
 
 test("failover reaches Prexzy when earlier providers throw", async () => {
@@ -90,4 +89,52 @@ test("request validation rejects missing and oversized questions with actionable
   const oversized = __testing.normalizeRequest({ question: "x".repeat(1501), context: "docs" });
   assert.equal(oversized.status, 413);
   assert.match(oversized.answer, /terlalu panjang/);
+});
+
+test("normalizer rejects objects, arrays, HTML and provider errors", () => {
+  for (const payload of [{data:{response:{other:"x"}}}, {data:{response:["bad"]}}, {data:{response:"<html>gateway error</html>"}}, {success:false,data:{response:"bad"}}, {error:"failed",data:{response:"bad"}}]) {
+    assert.equal(__testing.pickAnswer("cuki-deepseek", payload), "");
+  }
+  assert.equal(__testing.pickAnswer("cuki-deepseek", {data:{response:{answer:"Nested answer"}}}), "Nested answer");
+});
+
+test("questions must be strings", () => {
+  for (const question of [null, {}, [], 123, true]) assert.equal(__testing.normalizeRequest({question}).status, 400);
+});
+
+test("Cuki failure falls back without leaking provider errors", async () => {
+  const result = await __testing.askWithFailover("Install", "docs", async (url) => String(url).includes("cuki") ? jsonResponse({error:"secret provider failure"}, 500) : jsonResponse({result:"Install npm"}), "test-key");
+  assert.equal(result.provider, "izuka-gemmy");
+  assert.equal(result.attempts.length, 2);
+});
+
+test("outgoing prompts redact panel credentials and preserve Unicode questions", async () => {
+  const secret = "ptla_" + "a".repeat(32);
+  await __testing.askWithFailover(`Bagaimana 安全 ${secret}?`, "docs", async (url) => {
+    const prompt = new URL(url).searchParams.get("question");
+    assert.ok(!prompt.includes(secret));
+    assert.match(prompt, /安全/);
+    assert.match(prompt, /\[REDACTED\]/);
+    return jsonResponse({data:{response:"Jawaban"}});
+  }, "test-key");
+});
+
+test("valid troubleshooting answers beginning with Error remain usable", () => {
+  assert.equal(__testing.pickAnswer("cuki-deepseek", {data:{response:"Error DOMAIN_REQUIRED berarti domain belum diisi."}}), "Error DOMAIN_REQUIRED berarti domain belum diisi.");
+});
+
+test("oversized upstream response fails over", async () => {
+  let calls = 0;
+  const result = await __testing.askWithFailover("Install", "docs", async () => ++calls === 1 ? new Response("x".repeat(128001)) : jsonResponse({result:"Install SDK"}), "test-key");
+  assert.equal(result.provider,"izuka-gemmy");
+});
+
+test("Cuki prompt respects the live provider 4000-character limit", async () => {
+  await __testing.askWithFailover("Pertanyaan " + "x".repeat(1480), "docs".repeat(20000), async (url) => {
+    const prompt = new URL(url).searchParams.get("question");
+    assert.ok(prompt.length <= 4000);
+    assert.match(prompt, /Pertanyaan x/);
+    assert.match(prompt, /Akadev Pterodactyl Gateway Docs Assistant/);
+    return jsonResponse({data:{response:"OK"}});
+  }, "test-key");
 });

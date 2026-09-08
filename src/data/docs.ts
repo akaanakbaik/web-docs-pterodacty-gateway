@@ -26,13 +26,20 @@ export type DocSection = {
 };
 
 export const SDK_VERSION = "1.4.2";
+export const NPM_VERSION = "1.0.3";
+export const SDK_COMMIT = "ee1aa8225023a13c907cccd875d5b30596836dce";
 export const PACKAGE_NAME = "@akaanakbaik/pterodactyl-gateway";
 export const DOCS_URL = "https://pterodacty-gateway.akadev.me";
 export const SDK_REPOSITORY_URL = "https://github.com/akaanakbaik/pterodactyl-gateway";
 export const NPM_PACKAGE_URL = "https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway";
 
-const commonInstall = `npm i ${PACKAGE_NAME}
-npm i -g ${PACKAGE_NAME}`;
+const commonInstall = `git clone ${SDK_REPOSITORY_URL}.git
+cd pterodactyl-gateway
+git checkout ${SDK_COMMIT}
+npm ci
+npm run build
+npm pack
+npm i -g ./akaanakbaik-pterodactyl-gateway-${SDK_VERSION}.tgz`;
 const safeModeSnippet = `const ptero = createPtero({
   domain: process.env.PTERO_DOMAIN,
   ptla: process.env.PTERO_PTLA,
@@ -51,16 +58,16 @@ export const docs: DocSection[] = [
     body: [
       `Akadev Pterodactyl Gateway v${SDK_VERSION} adalah package Node.js ESM untuk menghubungkan backend, bot, dashboard, dan tool admin ke Pterodactyl Panel. SDK utama dipakai di backend; browser tidak boleh menerima PTLA atau PTLC.`,
       "Package ini menyediakan facade Application API untuk user, server, node, nest, egg, allocation, dan email; facade Client API untuk file, resources, power, backup, schedule, database, network, startup, dan WebSocket; serta helper smart untuk provisioning yang konsisten.",
-      "Distribusi npm adalah jalur stabil yang direkomendasikan. Repositori GitHub menjadi tempat source, changelog, quality gate, dan kontribusi. Semua contoh di docs ini memakai placeholder credential dan tidak merepresentasikan panel nyata."
+      `Audit 8 September 2026: npm latest adalah ${NPM_VERSION}, sedangkan materi ini mengacu source GitHub ${SDK_VERSION} pada commit ${SDK_COMMIT}. Versi npm ${SDK_VERSION} belum tersedia. Build source terpin untuk mengikuti API pada halaman ini; seluruh output terminal adalah simulasi.`
     ],
     steps: [
-      { title: "Install versi npm", detail: "Pasang package lokal untuk backend atau CLI global untuk pekerjaan admin.", command: commonInstall },
+      { title: "Build source yang diaudit", detail: "Versi source 1.4.2 belum diterbitkan di npm. Build commit terpin dan pasang tarball lokal.", command: commonInstall },
       { title: "Validasi binary", detail: "Pastikan versi dan self-check menunjuk ke package yang benar.", command: "ptero-gateway version\nptero-gateway self-check" },
       { title: "Pilih jalur integrasi", detail: "Gunakan SDK untuk aplikasi, CLI untuk operasi manual, dan wizard untuk konfigurasi interaktif." },
       { title: "Baca guard sebelum production", detail: "Pahami retry safety, safe mode, secret handling, dan dry-run sebelum membuat resource asli." }
     ],
     simulation: [
-      { label: "Install", terminal: `npm i -g ${PACKAGE_NAME}`, result: "package stabil terpasang" },
+      { label: "Install", terminal: `npm i -g ${PACKAGE_NAME}@${NPM_VERSION}`, result: "package stabil terpasang" },
       { label: "Version", terminal: "ptero-gateway version", result: `@akaanakbaik/pterodactyl-gateway@${SDK_VERSION}` },
       { label: "Self-check", terminal: "ptero-gateway self-check", result: "Self-check: OK · Node.js >=18" },
       { label: "Ready", terminal: "ptero-gateway help", result: "CLI siap dipakai" }
@@ -68,7 +75,7 @@ export const docs: DocSection[] = [
     code: commonInstall,
     examples: [
       { title: "Import SDK", code: `import { createPtero } from "${PACKAGE_NAME}";\nconst ptero = createPtero.fromEnv();` },
-      { title: "CLI dasar", code: "ptero-gateway doctor\nptero-gateway ids --nest 5\nptero-gateway admin servers" },
+      { title: "CLI dasar", code: "ptero-gateway doctor\nptero-gateway servers" },
       { title: "Sumber resmi", code: `${SDK_REPOSITORY_URL}\n${NPM_PACKAGE_URL}` }
     ],
     tags: ["overview", "pengenalan", "npm", "sdk", "cli", "v1.4.2", "pterodacty gateway"]
@@ -78,36 +85,32 @@ export const docs: DocSection[] = [
     path: "/docs/install",
     group: "Start",
     title: "Install dan Quick Start",
-    summary: "Panduan dari Node.js >=18, install package, self-check, sampai doctor dengan mode koneksi yang jelas.",
-    beginner: "Ikuti urutan ini sebelum membaca integrasi. Jika doctor belum OK, jangan menjalankan create server.",
+    summary: "Build source v1.4.2 terpin, bandingkan dengan npm v1.0.3, lalu jalankan self-check dan doctor.",
+    beginner: "API pada docs ini mengikuti source v1.4.2. npm latest yang terverifikasi adalah v1.0.3; jangan menganggap fiturnya identik. Ikuti build source di bawah.",
     body: [
-      "SDK mendukung Node.js 18, 20, dan 22. Gunakan project ESM dengan type module agar import package dan binary berjalan konsisten.",
+      "SDK mendukung Node.js >=18; validasi production pada runtime yang dipakai. Gunakan project ESM dengan type module agar import package dan binary berjalan konsisten.",
       "Install lokal dipakai oleh service backend, sedangkan install global dipakai oleh admin yang ingin menjalankan ptero-gateway dari shell. Setelah install, self-check memeriksa metadata package dan doctor menguji domain serta key yang tersedia.",
       "Jangan menaruh PTLA atau PTLC di source frontend. Gunakan environment variable pada backend, secret manager, atau profile lokal yang tidak masuk Git."
     ],
     steps: [
       { title: "Periksa runtime", detail: "Pastikan Node.js memenuhi engine package.", command: "node --version\nnpm --version" },
-      { title: "Install dependency project", detail: "Gunakan dependency lokal untuk bot, API, worker, atau dashboard backend.", command: `npm i ${PACKAGE_NAME}` },
-      { title: "Install CLI global", detail: "Gunakan ini jika ptero-gateway dipanggil langsung dari terminal.", command: `npm i -g ${PACKAGE_NAME}` },
+      { title: "Install dependency project", detail: "Untuk API source v1.4.2, bangun tarball terpin terlebih dahulu.", command: commonInstall },
+      { title: "Install CLI global", detail: "Alternatif versi npm terbit 1.0.3; fitur tidak dijamin sama dengan source 1.4.2.", command: `npm i -g ${PACKAGE_NAME}@${NPM_VERSION}` },
       { title: "Validasi package dan koneksi", detail: "Jalankan self-check lalu doctor setelah env tersedia.", command: "ptero-gateway version\nptero-gateway self-check\nptero-gateway doctor" }
     ],
     simulation: [
       { label: "Runtime", terminal: "node --version", result: "v18.x, v20.x, atau v22.x" },
-      { label: "Project", terminal: `npm i ${PACKAGE_NAME}`, result: "dependency masuk package.json" },
+      { label: "Project", terminal: `npm i ${PACKAGE_NAME}@${NPM_VERSION}`, result: "dependency masuk package.json" },
       { label: "Self-check", terminal: "ptero-gateway self-check", result: "Self-check: OK" },
       { label: "Doctor", terminal: "ptero-gateway doctor", result: "mode: full · application/client valid" }
     ],
-    code: `node --version
-npm i ${PACKAGE_NAME}
-ptero-gateway version
-ptero-gateway self-check
-ptero-gateway doctor`,
+    code: commonInstall,
     examples: [
       { title: "package.json ESM", code: `{
   "type": "module",
   "engines": { "node": ">=18" },
   "dependencies": {
-    "${PACKAGE_NAME}": "^${SDK_VERSION}"
+    "${PACKAGE_NAME}": "file:../pterodactyl-gateway/akaanakbaik-pterodactyl-gateway-${SDK_VERSION}.tgz"
   }
 }` },
       { title: "Cek global binary", code: "which ptero-gateway\nptero-gateway help\nptero-gateway version --json" }
@@ -155,41 +158,29 @@ ptero-gateway config doctor`,
     id: "cli-create-server",
     path: "/docs/cli-create-server",
     group: "CLI",
-    title: "CLI Create User dan Server",
-    summary: "Flow provisioning yang dapat diaudit: cek ID, dry-run, create, probe, control, dan cleanup.",
-    beginner: "Selalu mulai dari ids dan dry-run. Operasi asli harus memakai konfirmasi yang terlihat jelas.",
+    title: "CLI Terverifikasi dan Provisioning SDK",
+    summary: "Perintah CLI yang tersedia pada source v1.4.2 dan jalur provisioning melalui SDK.",
+    beginner: "Help source v1.4.2 mengiklankan admin, ids, dan probe, tetapi dispatcher belum mengimplementasikannya. Gunakan SDK untuk operasi tersebut.",
     body: [
-      "Flow create server menggabungkan user, node, nest, egg, allocation, image, startup, dan limits. CLI membantu membuat preview payload sebelum request POST dikirim ke panel.",
-      "Nest dan Egg tidak boleh dianggap memiliki ID universal. Gunakan ptero-gateway ids --nest <id> atau resolver berdasarkan nama, lalu verifikasi Docker image serta allocation di panel yang sedang dipakai.",
-      "Untuk testing, gunakan resource sementara dengan nama yang jelas, catat identifier, lalu hapus user dan server setelah skenario selesai. Jangan menguji pada resource produksi tanpa approval."
+      "Perintah yang diimplementasikan: help, version, self-check, release-check, env-template, config, templates, explain, doctor, servers, dan server resources/start/stop/restart/kill. Beberapa kode explain juga belum tersedia; gunakan explainError pada SDK.",
+      "Provisioning memakai ptero.smart.servers.preview/create. Application facade menerima payload panel mentah. Pilih node, nest, egg, serta userId dari panel; jangan menggunakan ID contoh pada produksi.",
+      "Preview SDK v1.4.2 dapat membuat user ketika autoCreateUser aktif. Gunakan userId yang sudah ada dan autoCreateUser: false. Konfirmasi operator harus berada pada aplikasi sebelum create."
     ],
     steps: [
-      { title: "Cek identifier panel", detail: "Temukan Node, Nest, dan Egg yang tersedia.", command: "ptero-gateway ids --nest 5" },
-      { title: "Preview payload", detail: "Dry-run tidak membuat resource asli.", command: "ptero-gateway admin create-server --name \"docs-test\" --email user@example.com --username docs_test --password auto --node 1 --nest 5 --egg 18 --preset basic --dry-run" },
-      { title: "Eksekusi terkonfirmasi", detail: "Gunakan --yes setelah preview, permission, image, allocation, dan limits diperiksa.", command: "ptero-gateway admin create-server --name \"docs-test\" --email user@example.com --username docs_test --password auto --node 1 --nest 5 --egg 18 --preset basic --yes" },
-      { title: "Probe dan cleanup", detail: "Tes endpoint client lalu hapus resource test setelah selesai.", command: "ptero-gateway probe <identifier>\nptero-gateway admin delete-server <id> --yes" }
+      { title: "Periksa binary", detail: "Validasi build source sebelum koneksi.", command: "ptero-gateway version\nptero-gateway self-check" },
+      { title: "Baca kondisi panel", detail: "Doctor dan daftar server adalah operasi baca.", command: "ptero-gateway doctor\nptero-gateway servers" },
+      { title: "Pilih ID lewat SDK", detail: "Application API menyediakan daftar ID panel.", command: "await ptero.application.nodes.list();\nawait ptero.application.nests.list();" },
+      { title: "Preview dengan user tersedia", detail: "Ikuti contoh SDK dan konfirmasi sebelum membuat server." }
     ],
     simulation: [
-      { label: "IDs", terminal: "ptero-gateway ids --nest 5", result: "node, nest, egg tersedia" },
-      { label: "Dry-run", terminal: "ptero-gateway admin create-server ... --dry-run", result: "payload preview · no mutation" },
-      { label: "Create", terminal: "ptero-gateway admin create-server ... --yes", result: "server dibuat · identifier tercatat" },
-      { label: "Probe", terminal: "ptero-gateway probe <identifier>", result: "resources · files · backups terjangkau" }
+      { label: "Version", terminal: "ptero-gateway version", result: "source build 1.4.2" },
+      { label: "Resources", terminal: "ptero-gateway server <identifier> resources", result: "object: stats; data aktual bergantung panel" }
     ],
-    code: `ptero-gateway ids --nest 5
-ptero-gateway admin create-server \
-  --name "docs-test" \
-  --email user@example.com \
-  --username docs_test \
-  --password auto \
-  --node 1 --nest 5 --egg 18 \
-  --preset basic \
-  --dry-run`,
+    code: "ptero-gateway version\nptero-gateway self-check\nptero-gateway doctor\nptero-gateway servers\nptero-gateway server <identifier> resources",
     examples: [
-      { title: "Preset standard", code: "ptero-gateway admin create-server --name \"bot standard\" --email user@example.com --username bot_standard --node 1 --nest 5 --egg 18 --preset standard --dry-run" },
-      { title: "Override resource", code: "ptero-gateway admin create-server --name \"api custom\" --email user@example.com --username api_custom --node 1 --nest 5 --egg 18 --preset standard --memory 3GB --disk 8GB --cpu 250% --dry-run" },
-      { title: "Image manual", code: "ptero-gateway admin create-server --name \"node app\" --email user@example.com --username node_app --node 1 --nest 5 --egg 18 --docker-image ghcr.io/parkervcp/yolks:nodejs_22 --dry-run" }
+      { title: "Daftar ID dengan SDK", code: "const nodes = await ptero.application.nodes.list();\nconst nests = await ptero.application.nests.list();\nconst eggs = await ptero.application.nests.eggs.list(nestId);" }
     ],
-    tags: ["cli", "create user", "create server", "dry run", "preset", "nest", "egg", "allocation"]
+    tags: ["cli", "create server", "dry run", "provisioning", "ids", "probe"]
   },
   {
     id: "sdk",
@@ -197,22 +188,22 @@ ptero-gateway admin create-server \
     group: "SDK",
     title: "SDK TypeScript v1.4.2",
     summary: "Membangun gateway, menjalankan preview, createSmart, server handle, error handling, dan typed response.",
-    beginner: "SDK hanya berjalan di backend atau worker terpercaya. Gunakan preview dan safe mode sebelum mutation.",
+    beginner: "SDK v1.4.2: preview/dryRun dapat membuat user jika autoCreateUser aktif. Untuk pengujian baca, gunakan userId yang sudah ada dan autoCreateUser: false.",
     body: [
       "createPtero.fromEnv() cocok untuk service sederhana. createPtero(config) cocok untuk multi-panel, konfigurasi dari secret manager, custom fetcher, timeout, retry, atau safeMode yang eksplisit.",
-      "Facade servers menyediakan preview, create, createFromPreset, updateSpecs, changeOwnership, dan changeNestEgg. Handle server menyediakan resources, power, command, files, startup, network, databases, backups, dan websocket.",
+      "Facade smart.servers menyediakan preview, create, createFromPreset, updateSpecs, changeOwnership, dan changeNestEgg. Handle server menyediakan resources, power, command, files, startup, network, databases, backups, dan websocket.",
       "PteroError dan explainError membantu aplikasi memetakan error domain, key, allocation, image, safe mode, atau server ke pesan yang dapat ditindaklanjuti."
     ],
     steps: [
       { title: "Import package", detail: "Gunakan named export dari package npm.", command: `import { createPtero, explainError } from "${PACKAGE_NAME}";` },
       { title: "Buat instance", detail: "fromEnv membaca configuration dari process environment.", command: "const ptero = createPtero.fromEnv();" },
-      { title: "Preview", detail: "Preview menghasilkan payload dan hasil resolver tanpa membuat server.", command: "const preview = await ptero.application.servers.preview(input);" },
-      { title: "Create dan handle", detail: "Setelah preview disetujui, create lalu gunakan identifier pada Client API.", command: "const server = await ptero.application.servers.create(input);\nconst handle = ptero.server(server.identifier);" }
+      { title: "Preview", detail: "Preview menghasilkan payload dan hasil resolver tanpa membuat server.", command: "const preview = await ptero.smart.servers.preview(input);" },
+      { title: "Create dan handle", detail: "Setelah preview disetujui, create lalu gunakan identifier pada Client API.", command: "const server = await ptero.smart.servers.create(input);\nif (\"dryRun\" in server || !server.identifier) throw new Error(\"Server belum tersedia\");\nconst handle = ptero.server(server.identifier);" }
     ],
     simulation: [
       { label: "Connect", terminal: "await ptero.connect()", result: "mode: full · latency terukur" },
-      { label: "Preview", terminal: "await ptero.application.servers.preview(input)", result: "payload siap · no mutation" },
-      { label: "Create", terminal: "await ptero.application.servers.create(input)", result: "server id + identifier" },
+      { label: "Preview", terminal: "await ptero.smart.servers.preview(input)", result: "payload siap · autoCreateUser false" },
+      { label: "Create", terminal: "await ptero.smart.servers.create(input)", result: "server id + identifier" },
       { label: "Control", terminal: "await ptero.server(identifier).resources()", result: "state dan resource tersedia" }
     ],
     code: `import { createPtero, explainError } from "${PACKAGE_NAME}";
@@ -220,10 +211,11 @@ ptero-gateway admin create-server \
 const ptero = createPtero.fromEnv();
 const input = {
   name: "Docs Server",
+  userId: 1,
   email: "user@example.com",
   username: "docs_user",
   password: "auto",
-  autoCreateUser: true,
+  autoCreateUser: false,
   nodeId: 1,
   nestId: 5,
   eggId: 18,
@@ -231,9 +223,10 @@ const input = {
 };
 
 try {
-  const preview = await ptero.application.servers.preview(input);
-  const server = await ptero.application.servers.create(input);
-  console.log(preview.payload, server.identifier);
+  const preview = await ptero.smart.servers.preview(input);
+  const server = await ptero.smart.servers.create(input);
+  if ("dryRun" in server) throw new Error("Hasil masih dry-run");
+  console.log(preview.ok, server.identifier);
 } catch (error) {
   console.error(explainError(error));
 }`,
@@ -301,7 +294,7 @@ await ptero.request({
 });`,
     examples: [
       { title: "Method policy", code: "GET · HEAD · OPTIONS · PUT · PATCH · DELETE = eligible\nPOST = opt-in with retryUnsafe: true" },
-      { title: "No duplicate create", code: "const preview = await ptero.application.servers.preview(input);\nif (preview.ok) await ptero.application.servers.create(input);" }
+      { title: "No duplicate create", code: "const preview = await ptero.smart.servers.preview(input);\nif (preview.ok) await ptero.smart.servers.create(input);" }
     ],
     tags: ["retry", "retryUnsafe", "http", "backoff", "jitter", "Retry-After", "idempotent"]
   },
@@ -313,7 +306,7 @@ await ptero.request({
     summary: "Peta Application API, Client API, generic types, dan helper pagination lintas halaman.",
     beginner: "Gunakan facade untuk operasi umum. Gunakan request raw ketika endpoint panel belum memiliki helper khusus.",
     body: [
-      "Application API berisi users, servers, nodes, nests, eggs, allocations, locations, dan email. Client API berisi account, servers, files, startup, network, databases, backups, schedules, resources, power, command, dan WebSocket.",
+      "Application API berisi users, servers, nodes, nests, eggs, allocations, dan locations. Email tersedia pada ptero.email serta helper level gateway. Client API berisi account, servers, files, startup, network, databases, backups, schedules, resources, power, command, dan WebSocket.",
       "Response collection memakai PteroResource<T>, PteroCollection<T>, dan PteroPagination. Helper resolver dan provisioning membaca seluruh halaman sampai batas maksimum 100 halaman agar pilihan Nest, Egg, dan allocation tidak berhenti di halaman pertama.",
       "Resolver Nest/Egg tidak lagi diam-diam jatuh ke ID hardcoded. Jika nama tidak ditemukan dan default ID tidak diberikan secara eksplisit, SDK mengembalikan error yang harus ditangani aplikasi."
     ],
@@ -341,7 +334,7 @@ const nest = await ptero.findNestByName("Node.js");
 const egg = await ptero.findEggByName(nest.id, "Node.js");`,
     examples: [
       { title: "Generic resource", code: "type ServerResource = PteroResource<PteroAppServer>;\nconst item: ServerResource = page.data[0];" },
-      { title: "Raw endpoint", code: "await ptero.request({ api: \"application\", method: \"GET\", path: \"/application/servers\" });" }
+      { title: "Raw endpoint", code: "await ptero.request({ api: \"application\", method: \"GET\", path: \"/servers\" });" }
     ],
     tags: ["api", "application", "client", "pagination", "PteroResource", "PteroCollection", "resolver", "nest", "egg"]
   },
@@ -377,7 +370,7 @@ await server.startup.set("CMD_RUN", "node index.js");
 const after = await server.resources();`,
     examples: [
       { title: "Safe command allowlist", code: "const allowed = new Set([\"node --version\", \"npm --version\"]);\nif (!allowed.has(command)) throw new Error(\"Command tidak diizinkan\");\nawait server.command(command);" },
-      { title: "Schedule builder", code: "const schedule = server.createScheduleBuilder();\nschedule.name(\"nightly\").cron(\"0 3 * * *\").power(\"restart\");\nawait schedule.create();" }
+      { title: "Schedule builder", code: "const schedule = server.createScheduleBuilder();\nschedule.setName(\"nightly\").setCron(\"0 3 * * *\").addTask(\"power\", \"restart\");\nawait schedule.save();" }
     ],
     tags: ["client api", "server", "resources", "power", "command", "startup", "schedule"]
   },
@@ -432,7 +425,7 @@ const backups = await server.backups.list();`,
     steps: [
       { title: "Install dependency", detail: "Pasang grammy dan gateway pada backend bot.", command: `npm i grammy ${PACKAGE_NAME}` },
       { title: "Validasi identity", detail: "Cek user ID dan role sebelum menerima order." },
-      { title: "Preview order", detail: "Bangun payload tanpa mutation.", command: "const preview = await service.dryRun({ kind: \"telegram-bot\", name: \"tg-user\", email: \"user@example.com\", username: \"tg_user\", password: \"auto\" });" },
+      { title: "Preview order", detail: "Gunakan user yang sudah ada dan autoCreateUser: false agar preview tidak membuat user.", command: "const preview = await service.dryRun({ kind: \"telegram-bot\", name: \"tg-user\", email: \"user@example.com\", username: \"tg_user\", password: \"auto\" });" },
       { title: "Create private", detail: "Jalankan create setelah payment dan idempotency lolos.", command: "const result = await service.create({ kind: \"telegram-bot\", name: \"tg-user\", email: \"user@example.com\", username: \"tg_user\", password: \"auto\" });" }
     ],
     simulation: [
@@ -449,12 +442,14 @@ const service = createIntegrationService({
   domain: process.env.PTERO_DOMAIN,
   ptla: process.env.PTERO_PTLA,
   ptlc: process.env.PTERO_PTLC
-}, { nodeId: 1, nestId: 5, eggId: 18, preset: "basic", autoCreateUser: true });
+}, { nodeId: 1, nestId: 5, eggId: 18, preset: "basic", autoCreateUser: false });
 
 bot.command("createpanel", async (ctx) => {
   try {
     const userId = ctx.from?.id;
     if (!userId) return ctx.reply("User tidak valid.");
+    const admins = new Set((process.env.TELEGRAM_ADMIN_IDS ?? "").split(","));
+    if (ctx.chat.type !== "private" || !admins.has(String(userId))) return ctx.reply("Khusus admin melalui chat privat.");
     const result = await service.create({
       kind: "telegram-bot",
       name: "tg-user",
@@ -462,6 +457,7 @@ bot.command("createpanel", async (ctx) => {
       username: "tg_user",
       password: "auto"
     });
+    if ("dryRun" in result) return ctx.reply("Masih preview.");
     await ctx.reply("Server dibuat: " + (result.identifier ?? result.id));
   } catch (error) {
     await ctx.reply(explainError(error));
@@ -488,7 +484,7 @@ bot.start();`,
       "Gunakan kind whatsapp-bot pada integration service dan simpan audit log yang menghubungkan order, user, server, identifier, preset, serta waktu provisioning."
     ],
     steps: [
-      { title: "Install gateway", detail: "Pasang gateway pada backend Baileys atau WhatsApp service.", command: `npm i ${PACKAGE_NAME}` },
+      { title: "Install gateway", detail: "Pasang gateway pada backend Baileys atau WhatsApp service.", command: `npm i ${PACKAGE_NAME}@${NPM_VERSION}` },
       { title: "Validasi order", detail: "Pastikan callback payment autentik dan order belum pernah dipenuhi." },
       { title: "Preview lalu create", detail: "Gunakan service dengan kind whatsapp-bot.", command: "await service.dryRun({ kind: \"whatsapp-bot\", name: \"wa-order\", email: \"user@example.com\", username: \"wa_user\", password: \"auto\" });" },
       { title: "Kirim private", detail: "Kirim URL dan password lewat private chat yang sudah diverifikasi." }
@@ -540,7 +536,12 @@ bot.start();`,
       { label: "Create", terminal: "service.create({ kind: discord-bot })", result: "server online" },
       { label: "Reply", terminal: "interaction.reply({ ephemeral: true })", result: "credential private" }
     ],
-    code: `const result = await service.create({
+    code: `if (!interaction.memberPermissions?.has("Administrator")) {
+  await interaction.reply({ content: "Khusus admin.", ephemeral: true });
+  return;
+}
+await interaction.deferReply({ ephemeral: true });
+const result = await service.create({
   kind: "discord-bot",
   name: "dc-user",
   email: "user@example.com",
@@ -548,10 +549,8 @@ bot.start();`,
   password: "auto"
 });
 
-await interaction.reply({
-  content: "Server dibuat: " + result.identifier,
-  ephemeral: true
-});`,
+if ("dryRun" in result) throw new Error("Hasil masih preview");
+await interaction.editReply({ content: "Server dibuat: " + result.identifier });`,
     examples: [
       { title: "Role check", code: "if (!interaction.memberPermissions?.has(\"Administrator\")) {\n  return interaction.reply({ content: \"Khusus admin.\", ephemeral: true });\n}" },
       { title: "Error handling", code: "try { await createDiscordPanel(interaction); } catch (error) { await interaction.reply({ content: explainError(error), ephemeral: true }); }" }
@@ -568,11 +567,11 @@ await interaction.reply({
     body: [
       "Dashboard atau toko panel memerlukan backend yang memegang secret, memvalidasi user, memeriksa payment, dan menyimpan audit. React frontend tidak boleh mengimpor package SDK untuk memanggil panel secara langsung.",
       "Endpoint preview mengembalikan hasil dry-run untuk admin atau order service. Endpoint create hanya berjalan setelah authentication, authorization, payment verification, dan idempotency check.",
-      "Tambahkan rate limit, schema validation, request size limit, CSRF strategy sesuai arsitektur, serta redaction pada error dan log."
+      "Contoh adalah kerangka integrasi: requireAuthenticatedUser, assertOrderOwner, validateCreateInput, payment, dan database harus diimplementasikan aplikasi. findUnique lalu create tidak menjamin idempotency saat request bersamaan; gunakan klaim order atomik/transaction sebelum provisioning dan rekonsiliasi jika timeout. Tambahkan rate limit, schema validation, request size limit, CSRF strategy, serta redaction."
     ],
     steps: [
       { title: "Buat service backend", detail: "Inisialisasi SDK pada Express, Fastify, worker, atau runtime Node.js lain." },
-      { title: "Endpoint preview", detail: "Kembalikan payload yang tidak mengubah panel.", command: "app.post(\"/api/panel/preview\", async (req, res) => res.json(await service.dryRun(req.body)));" },
+      { title: "Endpoint preview", detail: "Validasi auth dan gunakan autoCreateUser: false dengan user yang sudah ada.", command: "app.post(\"/api/panel/preview\", async (req, res) => res.json(await service.dryRun(req.body)));" },
       { title: "Endpoint create", detail: "Cek auth, payment, schema, dan idempotency sebelum mutation.", command: "app.post(\"/api/panel/create\", async (req, res) => res.json(await service.create(req.body)));" },
       { title: "Simpan audit", detail: "Simpan order ID, user ID, server ID, identifier, preset, dan status tanpa secret." }
     ],
@@ -582,8 +581,9 @@ await interaction.reply({
       { label: "Backend", terminal: "POST /api/panel/create", result: "server dibuat sekali" },
       { label: "Dashboard", terminal: "GET /api/my-servers", result: "server tampil sesuai user" }
     ],
-    code: `app.post("/api/panel/create", async (req, res) => {
+    code: `app.post("/api/panel/create", requireAuthenticatedUser, async (req, res) => {
   const input = validateCreateInput(req.body);
+  await assertOrderOwner(req.user.id, input.orderId);
   const paid = await checkPayment(input.orderId);
   if (!paid) return res.status(403).json({ ok: false, error: "Belum dibayar" });
 
@@ -598,8 +598,9 @@ await interaction.reply({
     password: "auto"
   });
 
+  if ("dryRun" in result) return res.status(409).json({ ok: false });
   await db.orders.update({ where: { id: input.orderId }, data: { serverId: result.id, status: "created" } });
-  return res.json({ ok: true, result });
+  return res.json({ ok: true, serverId: result.id, identifier: result.identifier });
 });`,
     examples: [
       { title: "Rate limit", code: "const key = `${req.ip}:${req.body.userId}`;\nif (await tooManyRequests(key)) return res.status(429).json({ error: \"Terlalu banyak request\" });" },
@@ -622,7 +623,7 @@ await interaction.reply({
     steps: [
       { title: "Aktifkan default aman", detail: "Biarkan safeMode true pada instance production.", command: safeModeSnippet },
       { title: "Preview sebelum mutation", detail: "Gunakan preview atau dryRun untuk provisioning dan perubahan specs." },
-      { title: "Konfirmasi destructive", detail: "Berikan true hanya setelah user, server, atau allocation yang benar diverifikasi.", command: "await ptero.application.users.delete(userId, true);\nawait ptero.application.servers.delete(serverId, true);" },
+      { title: "Konfirmasi destructive", detail: "Berikan true hanya setelah target diverifikasi. SDK v1.4.2 memperlakukan argumen true pada servers.delete sebagai force delete, bukan sekadar konfirmasi.", command: "await ptero.application.users.delete(userId, true);\nawait ptero.application.servers.delete(serverId, true);" },
       { title: "Rotasi dan audit", detail: "Catat actor, target, alasan, waktu, dan hasil; jangan catat secret." }
     ],
     simulation: [
@@ -728,21 +729,21 @@ await ptero.email.send({
       "SAFE_MODE_CONFIRMATION_REQUIRED berarti operasi destruktif belum diberi konfirmasi. Jika files.read mendapatkan HTML, anggap itu error panel atau fallback dan jangan menyimpan HTML sebagai isi file. Untuk POST yang gagal setelah timeout, periksa state sebelum retry manual."
     ],
     steps: [
-      { title: "Jalankan explain", detail: "Mulai dari kode error yang terlihat.", command: "ptero-gateway explain DOMAIN_REQUIRED\nptero-gateway explain SAFE_MODE_CONFIRMATION_REQUIRED" },
+      { title: "Jalankan explain", detail: "Mulai dari kode error yang terlihat.", command: "ptero-gateway explain DOMAIN_REQUIRED\nptero-gateway explain DOMAIN_REQUIRED" },
       { title: "Cek doctor", detail: "Pastikan domain dan key memiliki mode yang diharapkan.", command: "ptero-gateway doctor" },
-      { title: "Probe server", detail: "Cek endpoint Client API dan resources.", command: "ptero-gateway probe <identifier>\nptero-gateway server <identifier> resources" },
+      { title: "Probe server", detail: "Cek endpoint Client API dan resources.", command: "ptero-gateway server <identifier> resources" },
       { title: "Periksa panel", detail: "Verifikasi node, allocation, egg image, permission, logs Wings, dan state operation di panel." }
     ],
     simulation: [
       { label: "Error", terminal: "SAFE_MODE_CONFIRMATION_REQUIRED", result: "konfirmasi destruktif belum diberikan" },
-      { label: "Explain", terminal: "ptero-gateway explain SAFE_MODE_CONFIRMATION_REQUIRED", result: "hint perbaikan muncul" },
+      { label: "Explain", terminal: "ptero-gateway explain DOMAIN_REQUIRED", result: "hint perbaikan muncul" },
       { label: "Config", terminal: "ptero-gateway config doctor", result: "profile aktif" },
-      { label: "Probe", terminal: "ptero-gateway probe <identifier>", result: "endpoint client terjangkau" }
+      { label: "Probe", terminal: "ptero-gateway server <identifier> resources", result: "endpoint client terjangkau" }
     ],
-    code: "ptero-gateway explain DOMAIN_REQUIRED\nptero-gateway explain DOCKER_IMAGE_NOT_FOUND\nptero-gateway explain SAFE_MODE_CONFIRMATION_REQUIRED\nptero-gateway doctor\nptero-gateway probe <identifier>",
+    code: "ptero-gateway explain DOMAIN_REQUIRED\nptero-gateway explain DOCKER_IMAGE_NOT_FOUND\nptero-gateway explain DOMAIN_REQUIRED\nptero-gateway doctor\nptero-gateway server <identifier> resources",
     examples: [
-      { title: "Docker image manual", code: "ptero-gateway admin create-server --name node-app --email user@example.com --node 1 --nest 5 --egg 18 --docker-image ghcr.io/parkervcp/yolks:nodejs_22 --dry-run" },
-      { title: "State after timeout", code: "const before = await ptero.server(identifier).resources();\nconst result = await ptero.server(identifier).resources();\nif (before.current_state !== result.current_state) await auditStateChange();" },
+      { title: "Docker image manual", code: "const preview = await ptero.smart.servers.preview({ ...input, dockerImage: \"ghcr.io/parkervcp/yolks:nodejs_22\", autoCreateUser: false });" },
+      { title: "State after timeout", code: "const before = await ptero.server(identifier).resources();\nconst result = await ptero.server(identifier).resources();\nif (before.attributes.current_state !== result.attributes.current_state) await auditStateChange();" },
       { title: "File type guard", code: "const response = await server.files.read(\"/index.js\");\nif (response.trimStart().startsWith(\"<!doctype html\")) throw new Error(\"Panel returned HTML fallback\");" }
     ],
     tags: ["troubleshooting", "error", "domain required", "docker image", "allocation", "safe mode", "retry"]
@@ -790,19 +791,17 @@ await ptero.email.send({
       "Contoh kode disediakan sebagai referensi. Sesuaikan authentication, authorization, validation, payment, rate limit, audit, retention, dan recovery sebelum production."
     ],
     steps: [
-      { title: "Gunakan versi stabil", detail: `Install ${PACKAGE_NAME}@${SDK_VERSION} atau versi kompatibel yang telah diuji.` },
+      { title: "Gunakan versi stabil", detail: `npm yang terverifikasi: ${PACKAGE_NAME}@${NPM_VERSION}. API docs mengikuti build source ${SDK_VERSION}.` },
       { title: "Validasi sebelum production", detail: "Uji dry-run, doctor, cleanup, retry safety, dan destructive confirmation." },
       { title: "Patuhi aturan provider", detail: "Jangan gunakan automation untuk aktivitas yang melanggar ToS panel atau hosting." }
     ],
     simulation: [
-      { label: "Install", terminal: `npm i ${PACKAGE_NAME}@${SDK_VERSION}`, result: "versi stabil dipilih" },
+      { label: "Install", terminal: `npm i ${PACKAGE_NAME}@${NPM_VERSION}`, result: "versi stabil dipilih" },
       { label: "Test", terminal: "ptero-gateway doctor", result: "koneksi tervalidasi" },
       { label: "Review", terminal: "npm run ci", result: "quality gate lulus" },
       { label: "Deploy", terminal: "production rollout", result: "dengan auth + audit log" }
     ],
-    code: `npm i ${PACKAGE_NAME}@${SDK_VERSION}
-ptero-gateway doctor
-npm run ci`,
+    code: commonInstall,
     examples: [
       { title: "Checklist production", code: "Auth admin/payment aktif\nRate limit aktif\nCredential tidak di frontend\nAudit log tersimpan\nSafe mode aktif\nDry-run paket baru\nCI lulus" }
     ],
