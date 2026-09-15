@@ -27,7 +27,7 @@ export type DocSection = {
 
 export const SDK_VERSION = "1.4.2";
 export const PACKAGE_NAME = "@akaanakbaik/pterodactyl-gateway";
-export const DOCS_URL = "https://pterodacty-gateway.akadev.me";
+export const DOCS_URL = "https://pterodacty-gateway.akaa.dev";
 export const SDK_REPOSITORY_URL = "https://github.com/akaanakbaik/pterodactyl-gateway";
 export const NPM_PACKAGE_URL = "https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway";
 

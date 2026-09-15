@@ -4,7 +4,7 @@
 
 Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.4.2**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
 
-> Situs dokumentasi yang disiapkan: [`https://pterodacty-gateway.akadev.me`](https://pterodacty-gateway.akadev.me)
+> Situs dokumentasi yang disiapkan: [`https://pterodacty-gateway.akaa.dev`](https://pterodacty-gateway.akaa.dev)
 
 ## Status Kualitas
 
@@ -171,7 +171,7 @@ npm i -g @akaanakbaik/pterodactyl-gateway@1.4.2
 | SDK GitHub | https://github.com/akaanakbaik/pterodactyl-gateway |
 | SDK npm | https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway |
 | Docs source | https://github.com/akaanakbaik/web-docs-pterodacty-gateway |
-| Docs production | https://pterodacty-gateway.akadev.me |
+| Docs production | https://pterodacty-gateway.akaa.dev |
 
 ## Lisensi
 

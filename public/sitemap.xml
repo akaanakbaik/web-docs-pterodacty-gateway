@@ -1,102 +1,102 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/</loc>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/overview</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/overview</loc>
     <priority>0.95</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/install</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/install</loc>
     <priority>0.95</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/config</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/config</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/cli-create-server</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/cli-create-server</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/sdk</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/sdk</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/http-safety</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/http-safety</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/api-surface</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/api-surface</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/server-operations</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/server-operations</loc>
     <priority>0.85</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/files-backups</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/files-backups</loc>
     <priority>0.85</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/integrations/telegram-bot</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/integrations/telegram-bot</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/integrations/whatsapp-bot</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/integrations/whatsapp-bot</loc>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/integrations/discord-bot</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/integrations/discord-bot</loc>
     <priority>0.85</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/integrations/website-api</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/integrations/website-api</loc>
     <priority>0.85</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/security</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/security</loc>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/email</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/email</loc>
     <priority>0.75</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/release</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/release</loc>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/docs/troubleshooting</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/troubleshooting</loc>
     <priority>0.85</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/privacy</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/privacy</loc>
     <priority>0.5</priority>
   </url>
 
   <url>
-    <loc>https://pterodacty-gateway.akadev.me/terms</loc>
+    <loc>https://pterodacty-gateway.akaa.dev/terms</loc>
     <priority>0.5</priority>
   </url>
 </urlset>

@@ -5,7 +5,7 @@ const required = [
   "Pterodactyl Gateway",
   "/icon.svg",
   "/site.webmanifest",
-  "pterodacty-gateway.akadev.me"
+  "pterodacty-gateway.akaa.dev"
 ];
 const missing = required.filter((marker) => !html.includes(marker));
 

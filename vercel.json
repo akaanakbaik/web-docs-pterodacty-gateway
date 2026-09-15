@@ -13,7 +13,7 @@
           "value": "web-docs-pterodacty-gateway.vercel.app"
         }
       ],
-      "destination": "https://pterodacty-gateway.akadev.me/$1",
+      "destination": "https://pterodacty-gateway.akaa.dev/$1",
       "permanent": true
     }
   ],
