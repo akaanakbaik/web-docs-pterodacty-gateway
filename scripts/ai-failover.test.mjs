@@ -6,81 +6,88 @@ function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-test("failover uses Izuka first and forwards the shared system prompt", async () => {
+function parseCall(url) {
+  const parsed = new URL(String(url));
+  return { parsed, prompt: parsed.searchParams.get("prompt") ?? "", system: parsed.searchParams.get("system") ?? "", temperature: parsed.searchParams.get("temperature") };
+}
+
+test("siputzx is called with GET, system prompt, temperature, and the user question", async () => {
   const calls = [];
-  const result = await __testing.askWithFailover("Apa itu retry?", "Dokumentasi retry", async (url, init) => {
+  const result = await __testing.askWithSiputzx("Apa itu retry?", "Dokumentasi retry", async (url, init) => {
     calls.push({ url: String(url), init });
-    return jsonResponse({ result: "Jawaban Izuka" });
-  }, "cuki-test");
-  assert.equal(result.provider, "izuka-gemmy");
-  assert.equal(result.answer, "Jawaban Izuka");
+    return jsonResponse({ status: true, data: { response: "Jawaban siputzx" } });
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.provider, "siputzx-gpt-oss-120b");
+  assert.equal(result.answer, "Jawaban siputzx");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].init?.method, "POST");
-  const form = calls[0].init?.body;
-  assert.ok(form instanceof FormData);
-  assert.match(String(form.get("prompt")), /Kamu adalah Akadev Pterodactyl Gateway Docs Assistant/);
-  assert.match(String(form.get("prompt")), /Apa itu retry\?/);
-  assert.equal(form.get("media"), "");
+  assert.equal(calls[0].init?.method, "GET");
+  const call = parseCall(calls[0].url);
+  assert.equal(call.parsed.origin + call.parsed.pathname, "https://api.siputzx.my.id/api/ai/gptoss120b");
+  assert.equal(call.temperature, "0.7");
+  assert.match(call.prompt, /Apa itu retry\?/);
+  assert.match(call.prompt, /Dokumentasi retry/);
+  assert.match(call.system, /Akadev Pterodactyl Gateway Docs Assistant/);
 });
 
-test("failover moves to Cuki when Izuka returns an error", async () => {
+test("a failed first attempt is retried once before succeeding", async () => {
   const calls = [];
-  const result = await __testing.askWithFailover("Jelaskan safe mode", "Docs security", async (url) => {
+  const result = await __testing.askWithSiputzx("Jelaskan safe mode", "Docs security", async (url) => {
     calls.push(String(url));
-    if (calls.length === 1) return jsonResponse({ error: "upstream down" }, 503);
-    return jsonResponse({ data: { response: "Jawaban Cuki" } });
-  }, "cuki-test");
-  assert.equal(result.provider, "cuki-deepseek");
-  assert.equal(result.answer, "Jawaban Cuki");
+    if (calls.length === 1) return jsonResponse({ status: false, message: "upstream down" }, 503);
+    return jsonResponse({ status: true, data: { response: "Jawaban kedua" } });
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.answer, "Jawaban kedua");
+  assert.equal(result.attempts.length, 2);
+  assert.deepEqual(result.attempts.map((item) => item.ok), [false, true]);
   assert.equal(calls.length, 2);
-  assert.match(calls[1], /api\.cuki\.biz\.id\/api\/ai\/deepseek/);
-  assert.match(decodeURIComponent(calls[1].replace(/\+/g, " ")), /Jelaskan safe mode/);
 });
 
-test("failover reaches Prexzy when earlier providers throw", async () => {
-  const calls = [];
-  const result = await __testing.askWithFailover("Cara install", "Docs install", async (url) => {
-    calls.push(String(url));
-    if (calls.length < 2) throw new Error("timeout");
-    return jsonResponse({ response: "Jawaban Mistral" });
-  }, "");
-  assert.equal(result.provider, "prexzy-mistral");
-  assert.equal(result.answer, "Jawaban Mistral");
-  assert.equal(calls.length, 2);
-  assert.match(calls[1], /prexzyapis\.com\/ai\/mistral/);
-});
-
-test("all provider failures return a safe local fallback", async () => {
-  const result = await __testing.askWithFailover("Pertanyaan", "Context", async () => jsonResponse({}, 502), "");
+test("network errors are retried and then reported as a safe fallback", async () => {
+  let calls = 0;
+  const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async () => {
+    calls += 1;
+    throw new Error("timeout");
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.ok, false);
   assert.equal(result.provider, null);
   assert.match(result.answer, /AI assistant sedang tidak tersedia/);
-  assert.equal(result.attempts.length, 2);
+  assert.deepEqual(result.attempts.map((item) => item.status), [0, 0]);
 });
 
-test("HTTP 200 error text does not stop failover", async () => {
+test("HTTP 200 error text does not count as an answer", async () => {
   const calls = [];
-  const result = await __testing.askWithFailover("Pertanyaan", "Context", async (url) => {
+  const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async (url) => {
     calls.push(String(url));
     if (calls.length === 1) return new Response('"undefined" is not valid JSON', { status: 200 });
-    return jsonResponse({ response: "Jawaban Prexzy" });
-  }, "");
-  assert.equal(result.provider, "prexzy-mistral");
-  assert.equal(result.answer, "Jawaban Prexzy");
+    return jsonResponse({ status: true, data: { response: "Jawaban valid" } });
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.answer, "Jawaban valid");
+  assert.equal(calls.length, 2);
 });
 
-test("provider status false is treated as a failed answer", async () => {
-  const result = await __testing.askWithFailover("Pertanyaan", "Context", async () => jsonResponse({ status: false, result: "upstream error" }, 200), "");
+test("status false is treated as a failed answer even with HTTP 200", async () => {
+  const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async () => jsonResponse({ status: false, data: { response: "upstream error" } }, 200));
+  assert.equal(result.ok, false);
   assert.equal(result.provider, null);
   assert.match(result.answer, /AI assistant sedang tidak tersedia/);
 });
 
-test("oversized context is compacted without rejecting a valid question", () => {
-  const result = __testing.normalizeRequest({ question: "Apa itu retry?", context: "x".repeat(100000) });
-  assert.equal(result.status, 200);
-  assert.equal(result.context.length, 64000);
-  const prompt = __testing.buildAiPrompt(result.question, result.context);
-  assert.match(prompt, /Kamu adalah Akadev Pterodactyl Gateway Docs Assistant/);
-  assert.match(prompt, /Apa itu retry\?/);
+test("oversized context and questions keep the upstream URL within safe limits", () => {
+  const request = __testing.normalizeRequest({ question: `${"q".repeat(1500)}`, context: "x".repeat(100000) });
+  assert.equal(request.status, 200);
+  assert.equal(request.context.length, 6000);
+  const prompt = __testing.buildSiputzxPrompt(request.question, request.context);
+  const system = __testing.buildSiputzxSystem();
+  assert.ok(prompt.length <= 5000);
+  assert.ok(system.length <= 1200);
+  assert.match(prompt, /Pertanyaan user:/);
+  assert.match(system, /Akadev Pterodactyl Gateway Docs Assistant/);
+  const url = `https://api.siputzx.my.id/api/ai/gptoss120b?${new URLSearchParams({ prompt, system, temperature: "0.7" })}`;
+  assert.ok(url.length < 12000);
 });
 
 test("request validation rejects missing and oversized questions with actionable output", () => {
@@ -90,4 +97,10 @@ test("request validation rejects missing and oversized questions with actionable
   const oversized = __testing.normalizeRequest({ question: "x".repeat(1501), context: "docs" });
   assert.equal(oversized.status, 413);
   assert.match(oversized.answer, /terlalu panjang/);
+});
+
+test("nested and plain response shapes are both supported", () => {
+  assert.equal(__testing.pickAnswer({ status: true, data: { response: "nested" } }), "nested");
+  assert.equal(__testing.pickAnswer({ status: true, data: "plain" }), "plain");
+  assert.equal(__testing.pickAnswer({ status: false, data: { response: "hidden" } }), "");
 });

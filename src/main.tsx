@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bot, Check, ChevronRight, Code2, Command, Copy, ExternalLink, Github, Heart, Menu, Search, Shield, Sparkles, Trash2, X, Zap } from "lucide-react";
@@ -212,7 +212,7 @@ function Hero() {
 function QuickStats() {
   const items = [
     { icon: Code2, label: "Docs", value: "operational map", tone: "clay", action: () => navigateTo("/docs/overview") },
-    { icon: Command, label: "Install", value: "npm v1.4.2", tone: "ink", action: () => navigateTo("/docs/install") },
+    { icon: Command, label: "Install", value: "npm v1.6.0-beta", tone: "ink", action: () => navigateTo("/docs/install") },
     { icon: Bot, label: "Assistant", value: "docs-aware", tone: "sage", action: () => window.dispatchEvent(new Event("open-ai")) },
     { icon: Shield, label: "Guard", value: "safe by default", tone: "slate", action: () => navigateTo("/docs/security") }
   ];
@@ -358,26 +358,197 @@ async function readAiResponse(response: Response): Promise<{ answer?: string }> 
   }
 }
 
+function buildDocContext(doc: DocSection) {
+  const sections = [
+    `Halaman aktif: ${doc.title} (${doc.path})`,
+    `Ringkasan: ${doc.summary}`,
+    doc.beginner,
+    ...doc.body,
+    ...doc.steps.map((step, index) => `${index + 1}. ${step.title}: ${step.detail}${step.command ? ` | ${step.command}` : ""}`),
+    ...doc.examples.map((example) => `${example.title}: ${example.code}`),
+    doc.code ? `Contoh utama: ${doc.code}` : "",
+    `Tag: ${doc.tags.join(", ")}`
+  ].filter(Boolean);
+  return `${sections.join("\n")}\n\nKonteks umum:\n${knowledgeBase.slice(0, 2500)}`.slice(0, 9000);
+}
+
 function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([defaultAssistant]);
-  useEffect(() => { const handler = () => setOpen(true); window.addEventListener("open-ai", handler); return () => window.removeEventListener("open-ai", handler); }, []);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const stored = window.sessionStorage.getItem("ptg-ai-chat-v1");
+      if (!stored) return [defaultAssistant];
+      const parsed = JSON.parse(stored) as ChatMessage[];
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-16) : [defaultAssistant];
+    } catch {
+      return [defaultAssistant];
+    }
+  });
+  const [lastFailed, setLastFailed] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-ai", handler);
+    return () => window.removeEventListener("open-ai", handler);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem("ptg-ai-chat-v1", JSON.stringify(messages.slice(-16)));
+    } catch {
+      undefined;
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    const node = listRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [messages, loading, open]);
+
   async function ask(customQuestion?: string) {
     const text = (customQuestion ?? question).trim();
     if (!text || loading) return;
-    setOpen(true); setQuestion(""); setMessages((prev) => [...prev, { role: "user", content: text }]); setLoading(true);
+    setOpen(true);
+    setQuestion("");
+    setLastFailed("");
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setLoading(true);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 45000);
     try {
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text, context: knowledgeBase.slice(0, 60000) }) });
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text, context: buildDocContext(activeDoc) }),
+        signal: controller.signal
+      });
       const data = await readAiResponse(response);
       if (!response.ok) throw new Error(data.answer ?? "AI sedang tidak tersedia.");
-      setMessages((prev) => [...prev, { role: "assistant", content: data.answer?.trim() || "AI belum mengembalikan jawaban." }]);
-    } catch (error) { setMessages((prev) => [...prev, { role: "assistant", content: error instanceof Error && error.message ? error.message : "AI sedang tidak tersedia. Gunakan search lokal atau baca halaman troubleshooting." }]); }
-    finally { setLoading(false); }
+      const answer = data.answer?.trim();
+      if (!answer) throw new Error("AI belum mengembalikan jawaban. Coba lagi.");
+      setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
+    } catch (error) {
+      setLastFailed(text);
+      const message = error instanceof DOMException && error.name === "AbortError"
+        ? "Waktu tunggu AI habis. Coba pertanyaan yang lebih singkat atau ulangi."
+        : error instanceof Error && error.message
+          ? error.message
+          : "AI sedang tidak tersedia. Gunakan search lokal atau baca halaman troubleshooting.";
+      setMessages((prev) => [...prev, { role: "assistant", content: message }]);
+    } finally {
+      window.clearTimeout(timer);
+      setLoading(false);
+    }
   }
-  const suggestions = [`Ringkas ${activeDoc.title}`, "Contoh integrasi Telegram", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara deploy di Vercel"];
-  return <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 10, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.985 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="mb-3 w-full max-w-[360px] overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">AI docs assistant</p><h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2></div><div className="flex shrink-0 gap-1.5"><button title="Clear chat" onClick={() => setMessages([defaultAssistant])} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button><button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button></div></div><div className="mt-3 h-[272px] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin" aria-live="polite" aria-busy={loading}>{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role === "user" ? "chat-bubble-user ml-8" : "chat-bubble-assistant mr-0 sm:mr-6"}`}><span className="chat-bubble-label">{message.role === "user" ? "Anda" : "AI docs assistant"}</span><RichMessage content={message.content} /></div>)}{loading && <div className="chat-bubble chat-bubble-assistant mr-6"><span className="chat-bubble-label">AI docs assistant</span><div className="chat-loading"><span /> <span /> <span /></div></div>}</div><div className="chat-composer mt-3"><span className="chat-composer-mark" aria-hidden="true">›</span><input aria-label="Tulis pertanyaan ke AI docs assistant" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && ask()} placeholder="Tanya docs..." className="focus-ring min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70" /><button onClick={() => ask()} disabled={loading} className="focus-ring shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ask</button></div><div className="mt-2 flex flex-wrap gap-1.5">{suggestions.map((item) => <button key={item} onClick={() => ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>)}</div></motion.div>}</AnimatePresence><button onClick={() => setOpen((value) => !value)} aria-label="Buka AI docs assistant" className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button></div>;
+
+  function resetChat() {
+    setMessages([defaultAssistant]);
+    setLastFailed("");
+    setQuestion("");
+    try {
+      window.sessionStorage.removeItem("ptg-ai-chat-v1");
+    } catch {
+      undefined;
+    }
+  }
+
+  const suggestions = [`Ringkas ${activeDoc.title}`, "Dukungan Pterodactyl v2", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara aman hapus server"];
+
+  return (
+    <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.985 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="mb-3 flex max-h-[calc(100dvh-5rem)] w-full max-w-[400px] flex-col overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"
+            role="dialog"
+            aria-label="AI docs assistant"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">
+                  <span className="ai-status-dot" aria-hidden="true" /> AI docs assistant
+                </p>
+                <h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button title="Chat baru" aria-label="Chat baru" onClick={resetChat} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button>
+                <button title="Tutup" aria-label="Tutup AI docs assistant" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div ref={listRef} className="mt-3 h-[min(48vh,320px)] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin" aria-live="polite" aria-busy={loading}>
+              {messages.map((message, index) => (
+                <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role === "user" ? "chat-bubble-user ml-8" : "chat-bubble-assistant mr-0 sm:mr-6"}`}>
+                  <span className="chat-bubble-label">{message.role === "user" ? "Anda" : "AI docs assistant"}</span>
+                  <RichMessage content={message.content} />
+                </div>
+              ))}
+              {loading && (
+                <div className="chat-bubble chat-bubble-assistant mr-6">
+                  <span className="chat-bubble-label">AI docs assistant</span>
+                  <div className="chat-loading"><span /> <span /> <span /></div>
+                </div>
+              )}
+            </div>
+            {lastFailed && !loading && (
+              <button onClick={() => ask(lastFailed)} className="mt-2 self-start rounded-full border border-line bg-paper px-3 py-1.5 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">Ulangi pertanyaan</button>
+            )}
+            <div className="chat-composer mt-3">
+              <span className="chat-composer-mark" aria-hidden="true">›</span>
+              <input
+                ref={inputRef}
+                aria-label="Tulis pertanyaan ke AI docs assistant"
+                value={question}
+                maxLength={1500}
+                onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void ask();
+                  }
+                }}
+                placeholder="Tanya docs..."
+                className="focus-ring min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70"
+              />
+              <button onClick={() => void ask()} disabled={loading || !question.trim()} className="focus-ring shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50">{loading ? "..." : "Ask"}</button>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] font-semibold text-muted">
+              <span>Enter kirim · Esc tutup</span>
+              <span>{question.length}/1500</span>
+            </div>
+            {messages.length <= 1 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {suggestions.map((item) => (
+                  <button key={item} onClick={() => void ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <button onClick={() => setOpen((value) => !value)} aria-label="Buka AI docs assistant" aria-expanded={open} className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button>
+    </div>
+  );
 }
 
 function MobileMenu({ open, onClose, ...props }: SidebarProps & { open: boolean; onClose: () => void }) {

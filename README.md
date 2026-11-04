@@ -2,7 +2,7 @@
 
 [![Documentation CI](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml)
 
-Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.4.2**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
+Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.6.0-beta**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
 
 > Situs dokumentasi yang disiapkan: [`https://pterodacty-gateway.akaa.dev`](https://pterodacty-gateway.akaa.dev)
 
@@ -10,14 +10,14 @@ Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`]
 
 | Area | Status |
 |---|---|
-| SDK reference | Selaras dengan `@akaanakbaik/pterodactyl-gateway@1.4.2` |
+| SDK reference | Selaras dengan `@akaanakbaik/pterodactyl-gateway@1.6.0-beta` |
 | Node.js | 18.x, 20.x, dan 22.x |
 | TypeScript | Strict typecheck untuk frontend, config Node, dan `api/ai.ts` |
 | Build | Vite production build tervalidasi |
 | Source guard | Menolak komentar kode dan pola credential pada file ter-track |
 | Site smoke | Memeriksa metadata build, icon, manifest, canonical, dan stale version marker |
 | Dependency audit | Quality gate gagal pada high severity; temuan low tetap dilaporkan untuk pemantauan |
-| AI assistant | Input limit, shared system prompt, failover Izuka/Cuki/Prexzy, timeout upstream, normalizer response, dan fallback lokal |
+| AI assistant | Input limit, shared system prompt, provider siputzx gpt-oss-120b, retry, URL-length guard, timeout upstream, dan fallback lokal |
 
 Dokumentasi situs adalah lapisan frontend dan serverless AI proxy. Semua operasi Pterodactyl asli tetap dilakukan oleh backend atau CLI package utama. Situs ini tidak menyimpan atau meminta credential panel.
 
@@ -53,7 +53,7 @@ Hero menggunakan ilustrasi system map dan identitas grafis khusus. Code block, t
 
 AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi yang dikompaksi maksimum 60.000 karakter. Endpoint menerima context sampai 64.000 karakter, memvalidasi pertanyaan maksimum 1.500 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna. Bubble chat merender heading, list, bold, inline code, dan fenced code dengan label input/output yang jelas.
 
-## Selaras dengan SDK v1.4.2
+## Selaras dengan SDK v1.6.0-beta
 
 Materi situs mengikuti perubahan utama pada SDK utama:
 
@@ -67,7 +67,7 @@ Materi situs mengikuti perubahan utama pada SDK utama:
 | WebSocket Node.js memakai Origin dan menunggu open | Dijelaskan pada file, backup, dan WebSocket |
 | `changeNestEgg` memiliki image dan skip scripts | Dicakup pada API reference dan provisioning guidance |
 | SMTP wajib eksplisit | Halaman email menjelaskan host, port, username, password, recipient guard, dan retention |
-| API `updateInventory()` tidak digunakan | Docs hanya memakai facade yang tersedia pada v1.4.2 |
+| API `updateInventory()` tidak digunakan | Docs hanya memakai facade yang tersedia pada v1.6.0-beta |
 | Generic response types tersedia | Contoh memakai `PteroResource`, `PteroCollection`, dan `PteroPagination` |
 
 ## Stack
@@ -100,7 +100,7 @@ Atau jalankan semuanya sekaligus:
 npm run ci
 ```
 
-`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta delapan test failover dan API contract dengan mock provider. Test mencakup provider order, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
+`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta delapan test provider dan API contract dengan mock fetch. Test mencakup URL, parameter prompt/system/temperature, retry, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
 
 `npm run build` menghasilkan bundle production pada `dist`. `npm run test:site` memeriksa marker metadata yang harus ada pada `dist/index.html` dan menolak marker versi lama. Smoke test tidak memanggil provider AI dan dapat berjalan deterministik di CI.
 
@@ -136,8 +136,8 @@ Jika provider Cuki digunakan, set `CUKI_API_KEY` hanya melalui environment secre
 ## Struktur Repositori
 
 ```text
-api/ai.ts                    Serverless AI endpoint, shared prompt, failover, validation, timeout
-src/data/docs.ts             Knowledge base v1.4.2 dan route content
+api/ai.ts                    Serverless AI endpoint siputzx, retry, validation, timeout
+src/data/docs.ts             Knowledge base v1.6.0-beta dan route content
 src/data/aiPrompt.ts        Shared system prompt dan prompt builder
 src/data/ai.ts               Knowledge base prompt lokal assistant
 src/main.tsx                 Router SPA, search, docs UI, terminal, assistant
@@ -147,7 +147,7 @@ public/robots.txt            Crawler rules
 public/sitemap.xml           Sitemap halaman docs
 public/site.webmanifest      Web manifest
 scripts/source-guard.mjs     Guard comment dan credential pattern
-scripts/ai-failover.test.mjs Test provider order, prompt forwarding, normalizer, dan fallback
+scripts/ai-failover.test.mjs Test provider siputzx, prompt forwarding, retry, normalizer, dan fallback
 scripts/site-smoke.mjs       Smoke test output build dan metadata
 .github/workflows/ci.yml     Matrix validation dan artifact build
 .github/workflows/release-check.yml
@@ -162,8 +162,8 @@ Jangan memasukkan PTLA, PTLC, token GitHub, password panel, token bot, SMTP pass
 ## Package Utama
 
 ```bash
-npm i @akaanakbaik/pterodactyl-gateway@1.4.2
-npm i -g @akaanakbaik/pterodactyl-gateway@1.4.2
+npm i @akaanakbaik/pterodactyl-gateway@1.6.0-beta
+npm i -g @akaanakbaik/pterodactyl-gateway@1.6.0-beta
 ```
 
 | Resource | URL |

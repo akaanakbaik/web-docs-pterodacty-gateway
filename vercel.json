@@ -4,6 +4,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "functions": {
+    "api/ai.ts": { "maxDuration": 30 },
+    "api/health.ts": { "maxDuration": 10 }
+  },
   "redirects": [
     {
       "source": "/(.*)",

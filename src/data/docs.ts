@@ -25,7 +25,7 @@ export type DocSection = {
   tags: string[];
 };
 
-export const SDK_VERSION = "1.4.2";
+export const SDK_VERSION = "1.6.0-beta";
 export const PACKAGE_NAME = "@akaanakbaik/pterodactyl-gateway";
 export const DOCS_URL = "https://pterodacty-gateway.akaa.dev";
 export const SDK_REPOSITORY_URL = "https://github.com/akaanakbaik/pterodactyl-gateway";
@@ -50,7 +50,8 @@ export const docs: DocSection[] = [
     beginner: "Mulai dari sini untuk memahami pembagian Application API, Client API, mode koneksi, dan jalur aman dari install sampai production.",
     body: [
       `Akadev Pterodactyl Gateway v${SDK_VERSION} adalah package Node.js ESM untuk menghubungkan backend, bot, dashboard, dan tool admin ke Pterodactyl Panel. SDK utama dipakai di backend; browser tidak boleh menerima PTLA atau PTLC.`,
-      "Package ini menyediakan facade Application API untuk user, server, node, nest, egg, allocation, dan email; facade Client API untuk file, resources, power, backup, schedule, database, network, startup, dan WebSocket; serta helper smart untuk provisioning yang konsisten.",
+      "Package ini menyediakan facade Application API untuk user, server, node, nest, egg, allocation, location, tag, dan email; facade Client API untuk file, resources, power, backup, schedule, database, network, startup, subuser, dan WebSocket; serta helper smart untuk provisioning yang konsisten.",
+      "Satu instance gateway dapat dipakai untuk Pterodactyl v1 maupun v2 open beta. Deteksi otomatis memilih endpoint nests atau tags, menyusun payload create yang sesuai, dan mengaktifkan Admin API v2 bila adminKey tersedia.",
       "Distribusi npm adalah jalur stabil yang direkomendasikan. Repositori GitHub menjadi tempat source, changelog, quality gate, dan kontribusi. Semua contoh di docs ini memakai placeholder credential dan tidak merepresentasikan panel nyata."
     ],
     steps: [
@@ -71,7 +72,40 @@ export const docs: DocSection[] = [
       { title: "CLI dasar", code: "ptero-gateway doctor\nptero-gateway ids --nest 5\nptero-gateway admin servers" },
       { title: "Sumber resmi", code: `${SDK_REPOSITORY_URL}\n${NPM_PACKAGE_URL}` }
     ],
-    tags: ["overview", "pengenalan", "npm", "sdk", "cli", "v1.4.2", "pterodacty gateway"]
+    tags: ["overview", "pengenalan", "npm", "sdk", "cli", "v1.6.0-beta", "pterodacty gateway", "pterodactyl v2"]
+  },
+  {
+    id: "panel-compat",
+    path: "/docs/panel-compat",
+    group: "Start",
+    title: "Pterodactyl v1 dan v2",
+    summary: "Satu gateway untuk Pterodactyl v1 dan v2 open beta: deteksi otomatis, tags pengganti nest, Admin API, dan payload create yang berbeda.",
+    beginner: "Baca halaman ini sebelum upgrade panel. Gateway mendeteksi versi sendiri, tetapi pahami perbedaan endpoint dan key agar doctor serta provisioning tetap benar.",
+    body: [
+      "Pterodactyl v2 open beta memindahkan pengelompokan egg dari nest ke tag dan menambahkan Admin API di /api/admin. Gateway mendeteksi kemampuan panel lewat version, tags, nests, dan admin endpoint, lalu memilih jalur v1 atau v2 secara otomatis.",
+      "Pada v2, daftar egg dibaca dari /api/application/eggs dan tag dari /api/application/tags. Payload create server tidak mengirim nest; gateway menurunkan nest atau tag dari egg yang dipilih. Pada v1, gateway tetap memakai /api/application/nests dan /api/application/nests/{id}/eggs.",
+      "Admin API membutuhkan Client API key milik root administrator. Isi adminKey atau PTERO_ADMIN_KEY. Jika kosong, gateway memakai ptlc; jangan gunakan Application key untuk Admin API. Paksa apiVersion v1 atau v2 hanya jika panel fork salah terdeteksi."
+    ],
+    steps: [
+      { title: "Cek versi dan kapabilitas", detail: "panel() membaca version panel, sedangkan capabilities() merangkum endpoint yang tersedia.", command: "const info = await ptero.panel();\nconst caps = await ptero.capabilities();\nconsole.log(info.apiVersion, caps.tags, caps.adminApi);" },
+      { title: "Siapkan key v2", detail: "Tambahkan Client API key root administrator untuk namespace admin. Token ini tidak boleh masuk frontend.", command: "PTERO_ADMIN_KEY=ptlc_xxx\nPTERO_API_VERSION=auto" },
+      { title: "Baca tag dan egg", detail: "Gunakan tags pada v2 dan eggs tanpa nest. Nama tag dapat dicari langsung.", command: "const tags = await ptero.listTags();\nconst minecraft = await ptero.findTagByName(\"Minecraft\");\nconst eggs = await ptero.application.eggs.list();" },
+      { title: "Preview sebelum create", detail: "Preview menampilkan payload final yang sudah menyesuaikan v1 atau v2.", command: "const preview = await ptero.application.servers.preview(input);\nconsole.log(preview.payload);" },
+      { title: "Jalankan doctor", detail: "Doctor memeriksa api_version, panel_version, admin_api, tags, eggs, dan key yang diberikan.", command: "ptero-gateway doctor" }
+    ],
+    simulation: [
+      { label: "Detect", terminal: "await ptero.panel()", result: "apiVersion: v2 · panelVersion: canary" },
+      { label: "Tags", terminal: "await ptero.listTags()", result: "Minecraft · Source Engine · Rust" },
+      { label: "Admin", terminal: "await ptero.admin.version()", result: "current: canary · daemon tersedia" },
+      { label: "Create", terminal: "await ptero.application.servers.create(input)", result: "payload v2 tanpa nest · server dibuat" }
+    ],
+    code: `import { createPtero } from "${PACKAGE_NAME}";\n\nconst ptero = createPtero({\n  domain: process.env.PTERO_DOMAIN,\n  ptla: process.env.PTERO_PTLA,\n  ptlc: process.env.PTERO_PTLC,\n  adminKey: process.env.PTERO_ADMIN_KEY,\n  apiVersion: "auto"\n});\n\nconst info = await ptero.panel();\nconst caps = await ptero.capabilities();\nconsole.log({ apiVersion: info.apiVersion, tags: caps.tags, adminApi: caps.adminApi });\n\nconst tag = await ptero.findTagByName("Minecraft");\nconst egg = await ptero.application.eggs.find("Paper");\nconsole.log(tag?.id, egg?.id);`,
+    examples: [
+      { title: "Admin API v2", code: `const admin = ptero.admin;\nconsole.log(await admin.version());\nconst users = await admin.users.all();\nconst servers = await admin.servers.all();\nconst nodes = await admin.nodes.all();` },
+      { title: "Paksa mode panel", code: `createPtero({ domain, ptla, ptlc, apiVersion: "v2" });\ncreatePtero({ domain, ptla, ptlc, apiVersion: "v1" });` },
+      { title: "Egg dan runtime", code: `const eggs = await ptero.application.eggs.list();\nconst detail = await ptero.application.eggs.get(eggId);\nconst runtime = await ptero.application.eggs.runtime(eggId);` }
+    ],
+    tags: ["pterodactyl v2", "v2 beta", "canary", "apiVersion", "admin api", "tags", "nest", "egg", "kompatibilitas"]
   },
   {
     id: "install",
@@ -95,7 +129,7 @@ export const docs: DocSection[] = [
       { label: "Runtime", terminal: "node --version", result: "v18.x, v20.x, atau v22.x" },
       { label: "Project", terminal: `npm i ${PACKAGE_NAME}`, result: "dependency masuk package.json" },
       { label: "Self-check", terminal: "ptero-gateway self-check", result: "Self-check: OK" },
-      { label: "Doctor", terminal: "ptero-gateway doctor", result: "mode: full · application/client valid" }
+      { label: "Doctor", terminal: "ptero-gateway doctor", result: "mode: full · v1/v2 terdeteksi · application/client valid" }
     ],
     code: `node --version
 npm i ${PACKAGE_NAME}
@@ -195,12 +229,13 @@ ptero-gateway admin create-server \
     id: "sdk",
     path: "/docs/sdk",
     group: "SDK",
-    title: "SDK TypeScript v1.4.2",
-    summary: "Membangun gateway, menjalankan preview, createSmart, server handle, error handling, dan typed response.",
+    title: "SDK TypeScript v1.6.0-beta",
+    summary: "Membangun gateway v1/v2, menjalankan preview, createSmart, server handle, admin namespace, error handling, dan typed response.",
     beginner: "SDK hanya berjalan di backend atau worker terpercaya. Gunakan preview dan safe mode sebelum mutation.",
     body: [
       "createPtero.fromEnv() cocok untuk service sederhana. createPtero(config) cocok untuk multi-panel, konfigurasi dari secret manager, custom fetcher, timeout, retry, atau safeMode yang eksplisit.",
-      "Facade servers menyediakan preview, create, createFromPreset, updateSpecs, changeOwnership, dan changeNestEgg. Handle server menyediakan resources, power, command, files, startup, network, databases, backups, dan websocket.",
+      "Facade servers menyediakan preview, create, createFromPreset, updateSpecs, changeOwnership, dan changeNestEgg. Handle server menyediakan resources, power, command, files, startup, network, databases, backups, subusers, activity, dan websocket.",
+      "Gunakan panel() dan capabilities() untuk mengetahui apakah panel memakai v1 atau v2. Pada v2, admin menyediakan akses /api/admin untuk version, users, servers, nodes, eggs, tags, locations, database hosts, mounts, extensions, dan settings.",
       "PteroError dan explainError membantu aplikasi memetakan error domain, key, allocation, image, safe mode, atau server ke pesan yang dapat ditindaklanjuti."
     ],
     steps: [
@@ -263,7 +298,7 @@ const first = response.data[0]?.attributes;` }
     summary: "Memahami retry default, Retry-After, backoff, jitter, dan alasan POST membutuhkan opt-in eksplisit.",
     beginner: "Retry dapat mengulang request. Jangan mengulang mutation yang belum idempotent hanya karena jaringan lambat.",
     body: [
-      "HttpCore v1.4.2 hanya melakukan auto-retry untuk method GET, HEAD, OPTIONS, PUT, PATCH, dan DELETE sesuai konfigurasi retryOn. POST tidak diulang otomatis karena request create dapat menggandakan resource.",
+      "HttpCore v1.6.0-beta hanya melakukan auto-retry untuk method GET, HEAD, OPTIONS, PUT, PATCH, dan DELETE sesuai konfigurasi retryOn. POST tidak diulang otomatis karena request create dapat menggandakan resource.",
       "Jika aplikasi menjamin POST tertentu idempotent melalui idempotency key atau mekanisme server sendiri, request dapat memakai retryUnsafe: true. Keputusan ini harus dibuat per request, dicatat, dan diuji pada staging.",
       "Delay memakai exponential backoff dengan jitter dan menghormati header Retry-After bila tersedia. Atur timeout dan jumlah retry secukupnya agar kegagalan upstream tidak berubah menjadi storm request."
     ],
@@ -391,12 +426,14 @@ const after = await server.resources();`,
     body: [
       "File manager menyediakan list, read, write, mkdir, rename, compress, decompress, delete, json.read, json.write, dan download. Endpoint download mengembalikan URL file dari panel; ia tidak boleh diperlakukan seperti response HTML fallback.",
       "Files.read menolak HTML fallback agar halaman error panel tidak dianggap sebagai isi file. Saat mengunduh, periksa status response, content type, dan ukuran sebelum menyimpan buffer.",
-      "Backups menyediakan list, create, get, download, dan delete. WebSocket helper mengambil auth dari Client API dan di Node.js mengirim Origin yang sesuai agar handshake dapat dibuka; connect() menunggu socket benar-benar open."
+      "Backups menyediakan list, create, get, download, delete, restore, dan setLock. Gunakan restore hanya setelah membaca backup dan menguji truncate pada staging. WebSocket helper mengambil auth dari Client API dan di Node.js mengirim Origin yang sesuai agar handshake dapat dibuka; connect() menunggu socket benar-benar open.",
+      "File manager juga menyediakan chmod, copy (salinan dibuat di folder yang sama dengan suffix dari panel), dan pull dari URL. Subuser dikelola lewat server.subusers, aktivitas lewat server.activity(), dan docker image lewat server.settings.setDockerImage(). Semua operasi mutation tetap mengikuti retry policy dan safe mode."
     ],
     steps: [
       { title: "Tulis dan baca file", detail: "Mulai dengan file kecil di path yang diizinkan.", command: "await server.files.write(\"/tmp/docs.txt\", \"hello\");\nconst text = await server.files.read(\"/tmp/docs.txt\");" },
       { title: "Download file", detail: "Gunakan helper download dan tangani URL hasil panel.", command: "const download = await server.files.download(\"/tmp/docs.txt\");" },
       { title: "Backup", detail: "Buat atau daftar backup sebelum menghapus file test.", command: "const backup = await server.backups.create(\"docs-test\");\nconst backups = await server.backups.list();" },
+      { title: "Permission dan subuser", detail: "Batasi permission subuser dan cek hasilnya lewat list.", command: "await server.files.chmod(\"/\", [{ file: \"config.yml\", mode: \"0644\" }]);\nawait server.subusers.create(\"user@example.com\", [\"control.console\", \"file.read\"]);" },
       { title: "WebSocket", detail: "Connect setelah auth tersedia dan tutup socket saat service berhenti.", command: "const socket = server.websocket.create();\nawait socket.connect();" }
     ],
     simulation: [
@@ -413,9 +450,12 @@ const backups = await server.backups.list();`,
     examples: [
       { title: "JSON helper", code: "await server.files.json.write(\"/tmp/config.json\", { port: 3000 });\nconst config = await server.files.json.read<{ port: number }>(\"/tmp/config.json\");" },
       { title: "Backup download", code: "const backup = await server.backups.download(backupId);\nif (!backup?.attributes?.url) throw new Error(\"URL backup tidak tersedia\");" },
-      { title: "Cleanup file", code: "await server.files.delete(\"/tmp\", [\"docs.txt\", \"docs.json\"]);" }
+      { title: "Cleanup file", code: "await server.files.delete(\"/tmp\", [\"docs.txt\", \"docs.json\"]);" },
+      { title: "Copy, pull, chmod", code: `await server.files.copy(\"/config.yml\");\nawait server.files.pull(\"https://example.com/plugin.jar\", \"/plugins\", \"plugin.jar\");\nawait server.files.chmod(\"/plugins\", [{ file: \"plugin.jar\", mode: \"0644\" }]);` },
+      { title: "Restore dan lock backup", code: `await server.backups.setLock(backupId, true);\nawait server.backups.restore(backupId, false);\nawait server.backups.setLock(backupId, false);` },
+      { title: "Subuser dan activity", code: `const members = await server.subusers.list();\nconst events = await server.activity(1);\nconsole.log(members, events);` }
     ],
-    tags: ["files", "download", "html fallback", "backup", "websocket", "origin", "client api"]
+    tags: ["files", "download", "html fallback", "backup", "restore", "lock", "websocket", "origin", "client api", "subuser", "chmod", "pull"]
   },
   {
     id: "integrations-telegram",
@@ -616,7 +656,7 @@ await interaction.reply({
     beginner: "Safe mode aktif secara default. Jadikan pengecualian sebagai keputusan operasional yang terlihat dan terdokumentasi.",
     body: [
       "PTLA dan PTLC adalah credential berkuasa tinggi. Simpan di secret manager atau environment backend, gunakan permission minimal, rotasi setelah testing, dan jangan memasukkannya ke frontend, repository, log, issue, atau AI assistant.",
-      "safeMode v1.4.2 meminta konfirmasi eksplisit untuk menghapus Application user, server, dan allocation. Pada facade SDK, konfirmasi diberikan sebagai argumen boolean pada method destruktif; CLI memakai flag konfirmasi yang terlihat.",
+      "safeMode v1.6.0-beta meminta konfirmasi eksplisit untuk menghapus Application user, server, dan allocation. Pada facade SDK, konfirmasi diberikan sebagai argumen boolean pada method destruktif; CLI memakai flag konfirmasi yang terlihat.",
       "Safe mode tidak menggantikan authorization. Endpoint tetap membutuhkan auth, rate limit, payment gate bila relevan, audit log, validation, idempotency, dan policy allowlist untuk command."
     ],
     steps: [

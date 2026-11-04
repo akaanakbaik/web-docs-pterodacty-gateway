@@ -1,18 +1,23 @@
 import express from "express";
-import { AI_SYSTEM_PROMPT, buildAiPrompt } from "../src/data/aiPrompt.js";
+import { AI_SYSTEM_PROMPT } from "../src/data/aiPrompt.js";
 
 const app = express();
 app.use(express.json({ limit: "90kb" }));
 
 const MAX_QUESTION_LENGTH = 1500;
-const MAX_CONTEXT_LENGTH = 64000;
-const PROVIDER_TIMEOUT_MS = 9000;
-const CUKI_API_KEY = process.env.CUKI_API_KEY || "";
+const MAX_CONTEXT_LENGTH = 6000;
+const MAX_PROMPT_LENGTH = 5000;
+const MAX_SYSTEM_LENGTH = 1200;
+const PROVIDER_TIMEOUT_MS = 12000;
+const PROVIDER_ATTEMPTS = 2;
+const TEMPERATURE = 0.7;
+const SIPUTZX_ENDPOINT = "https://api.siputzx.my.id/api/ai/gptoss120b";
+const PROVIDER_NAME = "siputzx-gpt-oss-120b";
 const FALLBACK_MESSAGE = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
 
 type JsonObject = Record<string, unknown>;
-type ProviderName = "izuka-gemmy" | "cuki-deepseek" | "prexzy-mistral";
-type ProviderResult = { ok: boolean; answer: string; status: number; provider: ProviderName };
+type ProviderAttempt = { attempt: number; status: number; ok: boolean };
+type ProviderResult = { ok: boolean; answer: string; status: number };
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 function cleanText(value: unknown) {
@@ -32,18 +37,14 @@ function firstText(...values: unknown[]) {
   return "";
 }
 
-function pickAnswer(provider: ProviderName, payload: unknown) {
+function pickAnswer(payload: unknown) {
   if (typeof payload === "string") return firstText(payload);
   const root = asObject(payload);
-  const data = asObject(root.data);
-  const response = asObject(data.response);
-  const choices = Array.isArray(root.choices) ? root.choices : [];
-  const firstChoice = asObject(choices[0]);
-  const message = asObject(firstChoice.message);
   if (root.status === false || Number(root.statusCode) >= 400) return "";
-  if (provider === "izuka-gemmy") return firstText(root.result, root.answer, root.response, root.message, data.result, data.answer);
-  if (provider === "cuki-deepseek") return firstText(response.answer, data.response, root.answer, root.result, root.message);
-  return firstText(root.response, root.answer, root.result, root.message, message.content, data.response, data.answer);
+  const data = asObject(root.data);
+  const nested = asObject(data.response);
+  const plainData = typeof root.data === "string" ? root.data : "";
+  return firstText(data.response, nested.response, data.answer, data.message, plainData, root.response, root.answer, root.result, root.message);
 }
 
 async function readPayload(response: Response): Promise<unknown> {
@@ -56,58 +57,43 @@ async function readPayload(response: Response): Promise<unknown> {
   }
 }
 
-async function callIzuka(prompt: string, fetchImpl: FetchLike): Promise<ProviderResult> {
-  const form = new FormData();
-  form.set("prompt", prompt);
-  form.set("media", "");
-  const response = await fetchImpl("https://my.izuka-api.xyz/api/ai/gemmy-chat", {
-    method: "POST",
-    headers: { accept: "application/json" },
-    body: form,
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
-  });
-  const payload = await readPayload(response);
-  return { ok: response.ok, status: response.status, answer: pickAnswer("izuka-gemmy", payload), provider: "izuka-gemmy" };
+export function buildSiputzxPrompt(question: string, context: string) {
+  const intro = "Konteks dokumentasi Pterodactyl Gateway:";
+  const closing = "Jawab dengan ringkas, jelas, dan langsung ke solusi. Sertakan command siap pakai bila relevan.";
+  const questionBlock = `Pertanyaan user:\n${cleanText(question).slice(0, MAX_QUESTION_LENGTH)}`;
+  const available = Math.max(0, MAX_PROMPT_LENGTH - intro.length - closing.length - questionBlock.length - 8);
+  return `${intro}\n${cleanText(context).slice(0, available)}\n\n${questionBlock}\n\n${closing}`;
 }
 
-async function callCuki(prompt: string, fetchImpl: FetchLike, apiKey: string): Promise<ProviderResult> {
-  const params = new URLSearchParams({ apikey: apiKey, question: prompt });
-  const response = await fetchImpl(`https://api.cuki.biz.id/api/ai/deepseek?${params.toString()}`, {
-    headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
-  });
-  const payload = await readPayload(response);
-  return { ok: response.ok, status: response.status, answer: pickAnswer("cuki-deepseek", payload), provider: "cuki-deepseek" };
+export function buildSiputzxSystem() {
+  return cleanText(AI_SYSTEM_PROMPT).slice(0, MAX_SYSTEM_LENGTH);
 }
 
-async function callPrexzy(prompt: string, fetchImpl: FetchLike): Promise<ProviderResult> {
-  const params = new URLSearchParams({ prompt });
-  const response = await fetchImpl(`https://prexzyapis.com/ai/mistral?${params.toString()}`, {
+async function callSiputzx(prompt: string, system: string, fetchImpl: FetchLike): Promise<ProviderResult> {
+  const params = new URLSearchParams({ prompt, system, temperature: String(TEMPERATURE) });
+  const response = await fetchImpl(`${SIPUTZX_ENDPOINT}?${params.toString()}`, {
+    method: "GET",
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
   });
   const payload = await readPayload(response);
-  return { ok: response.ok, status: response.status, answer: pickAnswer("prexzy-mistral", payload), provider: "prexzy-mistral" };
+  return { ok: response.ok, status: response.status, answer: pickAnswer(payload) };
 }
 
-export async function askWithFailover(question: string, context: string, fetchImpl: FetchLike = fetch, cukiApiKey = CUKI_API_KEY) {
-  const prompt = buildAiPrompt(question, context);
-  const providers: Array<{ name: ProviderName; call: () => Promise<ProviderResult> }> = [
-    { name: "izuka-gemmy", call: () => callIzuka(prompt, fetchImpl) },
-    ...(cukiApiKey ? [{ name: "cuki-deepseek" as const, call: () => callCuki(prompt, fetchImpl, cukiApiKey) }] : []),
-    { name: "prexzy-mistral", call: () => callPrexzy(prompt, fetchImpl) }
-  ];
-  const attempts: Array<{ provider: ProviderName; status: number; ok: boolean }> = [];
-  for (const provider of providers) {
+export async function askWithSiputzx(question: string, context: string, fetchImpl: FetchLike = fetch) {
+  const prompt = buildSiputzxPrompt(question, context);
+  const system = buildSiputzxSystem();
+  const attempts: ProviderAttempt[] = [];
+  for (let attempt = 1; attempt <= PROVIDER_ATTEMPTS; attempt += 1) {
     try {
-      const result = await provider.call();
-      attempts.push({ provider: provider.name, status: result.status, ok: result.ok && Boolean(result.answer) });
-      if (result.ok && result.answer) return { answer: result.answer, provider: result.provider, attempts };
+      const result = await callSiputzx(prompt, system, fetchImpl);
+      attempts.push({ attempt, status: result.status, ok: result.ok && Boolean(result.answer) });
+      if (result.ok && result.answer) return { ok: true, answer: result.answer, provider: PROVIDER_NAME, attempts };
     } catch {
-      attempts.push({ provider: provider.name, status: 0, ok: false });
+      attempts.push({ attempt, status: 0, ok: false });
     }
   }
-  return { answer: FALLBACK_MESSAGE, provider: null, attempts };
+  return { ok: false, answer: FALLBACK_MESSAGE, provider: null, attempts };
 }
 
 function normalizeRequest(body: unknown) {
@@ -119,10 +105,21 @@ function normalizeRequest(body: unknown) {
   return { status: 200, question, context, answer: "" };
 }
 
-export const __testing = { AI_SYSTEM_PROMPT, buildAiPrompt, pickAnswer, askWithFailover, normalizeRequest };
+export const __testing = {
+  AI_SYSTEM_PROMPT,
+  SIPUTZX_ENDPOINT,
+  PROVIDER_NAME,
+  MAX_CONTEXT_LENGTH,
+  MAX_PROMPT_LENGTH,
+  buildSiputzxPrompt,
+  buildSiputzxSystem,
+  pickAnswer,
+  askWithSiputzx,
+  normalizeRequest
+};
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "pterodactyl-gateway-docs", aiFailover: ["izuka-gemmy", "cuki-deepseek", "prexzy-mistral"] });
+  res.json({ ok: true, service: "pterodactyl-gateway-docs", aiProvider: PROVIDER_NAME, model: "gpt-oss-120b" });
 });
 
 app.post("/api/ai", async (req, res) => {
@@ -131,8 +128,8 @@ app.post("/api/ai", async (req, res) => {
     res.status(request.status).json({ ok: false, answer: request.answer });
     return;
   }
-  const result = await askWithFailover(request.question, request.context);
-  res.status(200).json({ ok: true, answer: result.answer });
+  const result = await askWithSiputzx(request.question, request.context);
+  res.status(result.ok ? 200 : 503).json({ ok: result.ok, answer: result.answer, provider: result.provider, attempts: result.attempts });
 });
 
 export default app;
