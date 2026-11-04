@@ -81,6 +81,7 @@ test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
   assert.match(system, /@akaanakbaik\/pterodactyl-gateway/);
   assert.match(system, /npm i @akaanakbaik\/pterodactyl-gateway/);
   assert.match(system, /1\.6\.0-beta/);
+  assert.match(system, /Node\.js 18/);
 });
 
 test("oversized context and questions keep the upstream URL within safe limits", () => {
