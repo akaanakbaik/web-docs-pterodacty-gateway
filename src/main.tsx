@@ -212,7 +212,7 @@ function Hero() {
 function QuickStats() {
   const items = [
     { icon: Code2, label: "Docs", value: "operational map", tone: "clay", action: () => navigateTo("/docs/overview") },
-    { icon: Command, label: "Install", value: "npm v1.6.0-beta", tone: "ink", action: () => navigateTo("/docs/install") },
+    { icon: Command, label: "Install", value: "npm v1.6.0", tone: "ink", action: () => navigateTo("/docs/install") },
     { icon: Bot, label: "Assistant", value: "docs-aware", tone: "sage", action: () => window.dispatchEvent(new Event("open-ai")) },
     { icon: Shield, label: "Guard", value: "safe by default", tone: "slate", action: () => navigateTo("/docs/security") }
   ];

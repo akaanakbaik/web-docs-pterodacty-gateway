@@ -1,7 +1,7 @@
 {
-  "name": "Akadev Pterodactyl Gateway Docs v1.6.0-beta",
+  "name": "Akadev Pterodactyl Gateway Docs v1.6.0",
   "short_name": "Gateway Docs",
-  "description": "Manual operasional untuk @akaanakbaik/pterodactyl-gateway v1.6.0-beta.",
+  "description": "Manual operasional untuk @akaanakbaik/pterodactyl-gateway v1.6.0.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f0e8",

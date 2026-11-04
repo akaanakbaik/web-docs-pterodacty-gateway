@@ -2,7 +2,7 @@
 
 [![Documentation CI](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/akaanakbaik/web-docs-pterodacty-gateway/actions/workflows/ci.yml)
 
-Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.6.0-beta**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
+Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`](https://www.npmjs.com/package/@akaanakbaik/pterodactyl-gateway) **v1.6.0**. Situs ini berfokus pada jalur operasional yang dapat diverifikasi: install, konfigurasi, provisioning, server control, file dan backup, retry safety, safe mode, integrasi bot, backend API, troubleshooting, serta release quality gate.
 
 > Situs dokumentasi yang disiapkan: [`https://pterodacty-gateway.akaa.dev`](https://pterodacty-gateway.akaa.dev)
 
@@ -10,7 +10,7 @@ Website dokumentasi resmi untuk package npm [`@akaanakbaik/pterodactyl-gateway`]
 
 | Area | Status |
 |---|---|
-| SDK reference | Selaras dengan `@akaanakbaik/pterodactyl-gateway@1.6.0-beta` |
+| SDK reference | Selaras dengan `@akaanakbaik/pterodactyl-gateway@1.6.0` |
 | Node.js | 18.x, 20.x, dan 22.x |
 | TypeScript | Strict typecheck untuk frontend, config Node, dan `api/ai.ts` |
 | Build | Vite production build tervalidasi |
@@ -53,7 +53,7 @@ Hero menggunakan ilustrasi system map dan identitas grafis khusus. Code block, t
 
 AI assistant memakai endpoint internal `POST /api/ai`. Frontend hanya mengirim pertanyaan dan knowledge base dokumentasi yang dikompaksi maksimum 60.000 karakter. Endpoint menerima context sampai 64.000 karakter, memvalidasi pertanyaan maksimum 1.500 karakter, membentuk satu prompt yang memuat system prompt dan pertanyaan yang sama, lalu mencoba Izuka/Gemmy, Cuki/DeepSeek jika `CUKI_API_KEY` tersedia, dan Prexzy/Mistral secara berurutan. Setiap provider memiliki timeout, normalizer response, dan fallback lokal tanpa menampilkan error upstream kepada pengguna. Bubble chat merender heading, list, bold, inline code, dan fenced code dengan label input/output yang jelas.
 
-## Selaras dengan SDK v1.6.0-beta
+## Selaras dengan SDK v1.6.0
 
 Materi situs mengikuti perubahan utama pada SDK utama:
 
@@ -67,7 +67,7 @@ Materi situs mengikuti perubahan utama pada SDK utama:
 | WebSocket Node.js memakai Origin dan menunggu open | Dijelaskan pada file, backup, dan WebSocket |
 | `changeNestEgg` memiliki image dan skip scripts | Dicakup pada API reference dan provisioning guidance |
 | SMTP wajib eksplisit | Halaman email menjelaskan host, port, username, password, recipient guard, dan retention |
-| API `updateInventory()` tidak digunakan | Docs hanya memakai facade yang tersedia pada v1.6.0-beta |
+| API `updateInventory()` tidak digunakan | Docs hanya memakai facade yang tersedia pada v1.6.0 |
 | Generic response types tersedia | Contoh memakai `PteroResource`, `PteroCollection`, dan `PteroPagination` |
 
 ## Stack
@@ -137,7 +137,7 @@ Jika provider Cuki digunakan, set `CUKI_API_KEY` hanya melalui environment secre
 
 ```text
 api/ai.ts                    Serverless AI endpoint siputzx, retry, validation, timeout
-src/data/docs.ts             Knowledge base v1.6.0-beta dan route content
+src/data/docs.ts             Knowledge base v1.6.0 dan route content
 src/data/aiPrompt.ts        Shared system prompt dan prompt builder
 src/data/ai.ts               Knowledge base prompt lokal assistant
 src/main.tsx                 Router SPA, search, docs UI, terminal, assistant
@@ -162,8 +162,8 @@ Jangan memasukkan PTLA, PTLC, token GitHub, password panel, token bot, SMTP pass
 ## Package Utama
 
 ```bash
-npm i @akaanakbaik/pterodactyl-gateway@1.6.0-beta
-npm i -g @akaanakbaik/pterodactyl-gateway@1.6.0-beta
+npm i @akaanakbaik/pterodactyl-gateway@1.6.0
+npm i -g @akaanakbaik/pterodactyl-gateway@1.6.0
 ```
 
 | Resource | URL |

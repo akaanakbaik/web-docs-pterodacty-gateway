@@ -80,7 +80,7 @@ test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
   const system = __testing.buildSiputzxSystem();
   assert.match(system, /@akaanakbaik\/pterodactyl-gateway/);
   assert.match(system, /npm i @akaanakbaik\/pterodactyl-gateway/);
-  assert.match(system, /1\.6\.0-beta/);
+  assert.match(system, /1\.6\.0/);
   assert.match(system, /Node\.js 18/);
 });
 

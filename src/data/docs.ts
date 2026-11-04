@@ -25,7 +25,7 @@ export type DocSection = {
   tags: string[];
 };
 
-export const SDK_VERSION = "1.6.0-beta";
+export const SDK_VERSION = "1.6.0";
 export const PACKAGE_NAME = "@akaanakbaik/pterodactyl-gateway";
 export const DOCS_URL = "https://pterodacty-gateway.akaa.dev";
 export const SDK_REPOSITORY_URL = "https://github.com/akaanakbaik/pterodactyl-gateway";
@@ -72,7 +72,7 @@ export const docs: DocSection[] = [
       { title: "CLI dasar", code: "ptero-gateway doctor\nptero-gateway ids --nest 5\nptero-gateway admin servers" },
       { title: "Sumber resmi", code: `${SDK_REPOSITORY_URL}\n${NPM_PACKAGE_URL}` }
     ],
-    tags: ["overview", "pengenalan", "npm", "sdk", "cli", "v1.6.0-beta", "pterodacty gateway", "pterodactyl v2"]
+    tags: ["overview", "pengenalan", "npm", "sdk", "cli", "v1.6.0", "pterodacty gateway", "pterodactyl v2"]
   },
   {
     id: "panel-compat",
@@ -229,7 +229,7 @@ ptero-gateway admin create-server \
     id: "sdk",
     path: "/docs/sdk",
     group: "SDK",
-    title: "SDK TypeScript v1.6.0-beta",
+    title: "SDK TypeScript v1.6.0",
     summary: "Membangun gateway v1/v2, menjalankan preview, createSmart, server handle, admin namespace, error handling, dan typed response.",
     beginner: "SDK hanya berjalan di backend atau worker terpercaya. Gunakan preview dan safe mode sebelum mutation.",
     body: [
@@ -298,7 +298,7 @@ const first = response.data[0]?.attributes;` }
     summary: "Memahami retry default, Retry-After, backoff, jitter, dan alasan POST membutuhkan opt-in eksplisit.",
     beginner: "Retry dapat mengulang request. Jangan mengulang mutation yang belum idempotent hanya karena jaringan lambat.",
     body: [
-      "HttpCore v1.6.0-beta hanya melakukan auto-retry untuk method GET, HEAD, OPTIONS, PUT, PATCH, dan DELETE sesuai konfigurasi retryOn. POST tidak diulang otomatis karena request create dapat menggandakan resource.",
+      "HttpCore v1.6.0 hanya melakukan auto-retry untuk method GET, HEAD, OPTIONS, PUT, PATCH, dan DELETE sesuai konfigurasi retryOn. POST tidak diulang otomatis karena request create dapat menggandakan resource.",
       "Jika aplikasi menjamin POST tertentu idempotent melalui idempotency key atau mekanisme server sendiri, request dapat memakai retryUnsafe: true. Keputusan ini harus dibuat per request, dicatat, dan diuji pada staging.",
       "Delay memakai exponential backoff dengan jitter dan menghormati header Retry-After bila tersedia. Atur timeout dan jumlah retry secukupnya agar kegagalan upstream tidak berubah menjadi storm request."
     ],
@@ -426,7 +426,7 @@ const after = await server.resources();`,
     body: [
       "File manager menyediakan list, read, write, mkdir, rename, compress, decompress, delete, json.read, json.write, dan download. Endpoint download mengembalikan URL file dari panel; ia tidak boleh diperlakukan seperti response HTML fallback.",
       "Files.read menolak HTML fallback agar halaman error panel tidak dianggap sebagai isi file. Saat mengunduh, periksa status response, content type, dan ukuran sebelum menyimpan buffer.",
-      "Backups menyediakan list, create, get, download, delete, restore, dan setLock. Gunakan restore hanya setelah membaca backup dan menguji truncate pada staging. WebSocket helper mengambil auth dari Client API dan di Node.js mengirim Origin yang sesuai agar handshake dapat dibuka; connect() menunggu socket benar-benar open.",
+      "Backups menyediakan list, create, get, downloadUrl, download, downloadToFile, delete, restore, dan setLock. download mengembalikan Buffer, downloadToFile menulis ke disk dengan batas maxBytes opsional, dan downloadUrl hanya mengembalikan URL sementara dari panel. Gunakan restore hanya setelah membaca backup dan menguji truncate pada staging. WebSocket helper mengambil auth dari Client API dan di Node.js mengirim Origin yang sesuai agar handshake dapat dibuka; connect() menunggu socket benar-benar open.",
       "File manager juga menyediakan chmod, copy (salinan dibuat di folder yang sama dengan suffix dari panel), dan pull dari URL. Subuser dikelola lewat server.subusers, aktivitas lewat server.activity(), dan docker image lewat server.settings.setDockerImage(). Semua operasi mutation tetap mengikuti retry policy dan safe mode."
     ],
     steps: [
@@ -449,7 +449,7 @@ const download = await server.files.download("/tmp/docs.json");
 const backups = await server.backups.list();`,
     examples: [
       { title: "JSON helper", code: "await server.files.json.write(\"/tmp/config.json\", { port: 3000 });\nconst config = await server.files.json.read<{ port: number }>(\"/tmp/config.json\");" },
-      { title: "Backup download", code: "const backup = await server.backups.download(backupId);\nif (!backup?.attributes?.url) throw new Error(\"URL backup tidak tersedia\");" },
+      { title: "Backup download", code: "const buffer = await server.backups.download(backupId);\nconst file = await server.backups.downloadToFile(backupId, \"./backup.tar.gz\", 512 * 1024 * 1024);" },
       { title: "Cleanup file", code: "await server.files.delete(\"/tmp\", [\"docs.txt\", \"docs.json\"]);" },
       { title: "Copy, pull, chmod", code: `await server.files.copy(\"/config.yml\");\nawait server.files.pull(\"https://example.com/plugin.jar\", \"/plugins\", \"plugin.jar\");\nawait server.files.chmod(\"/plugins\", [{ file: \"plugin.jar\", mode: \"0644\" }]);` },
       { title: "Restore dan lock backup", code: `await server.backups.setLock(backupId, true);\nawait server.backups.restore(backupId, false);\nawait server.backups.setLock(backupId, false);` },
@@ -656,7 +656,7 @@ await interaction.reply({
     beginner: "Safe mode aktif secara default. Jadikan pengecualian sebagai keputusan operasional yang terlihat dan terdokumentasi.",
     body: [
       "PTLA dan PTLC adalah credential berkuasa tinggi. Simpan di secret manager atau environment backend, gunakan permission minimal, rotasi setelah testing, dan jangan memasukkannya ke frontend, repository, log, issue, atau AI assistant.",
-      "safeMode v1.6.0-beta meminta konfirmasi eksplisit untuk menghapus Application user, server, dan allocation. Pada facade SDK, konfirmasi diberikan sebagai argumen boolean pada method destruktif; CLI memakai flag konfirmasi yang terlihat.",
+      "safeMode v1.6.0 meminta konfirmasi eksplisit untuk menghapus Application user, server, dan allocation. Pada facade SDK, konfirmasi diberikan sebagai argumen boolean pada method destruktif; CLI memakai flag konfirmasi yang terlihat.",
       "Safe mode tidak menggantikan authorization. Endpoint tetap membutuhkan auth, rate limit, payment gate bila relevan, audit log, validation, idempotency, dan policy allowlist untuk command."
     ],
     steps: [

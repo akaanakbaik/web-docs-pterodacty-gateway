@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Official documentation website for Akadev Pterodactyl Gateway SDK v1.6.0-beta with local search and AI assistant.",
+  "description": "Official documentation website for Akadev Pterodactyl Gateway SDK v1.6.0 with local search and AI assistant.",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
