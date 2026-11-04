@@ -76,6 +76,13 @@ test("status false is treated as a failed answer even with HTTP 200", async () =
   assert.match(result.answer, /AI assistant sedang tidak tersedia/);
 });
 
+test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
+  const system = __testing.buildSiputzxSystem();
+  assert.match(system, /@akaanakbaik\/pterodactyl-gateway/);
+  assert.match(system, /npm i @akaanakbaik\/pterodactyl-gateway/);
+  assert.match(system, /1\.6\.0-beta/);
+});
+
 test("oversized context and questions keep the upstream URL within safe limits", () => {
   const request = __testing.normalizeRequest({ question: `${"q".repeat(1500)}`, context: "x".repeat(100000) });
   assert.equal(request.status, 200);
