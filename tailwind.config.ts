@@ -5,22 +5,24 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Instrument Sans", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
+        sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Bricolage Grotesque", "IBM Plex Sans", "ui-sans-serif", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       },
       colors: {
-        paper: "#f4f0e8",
-        ink: "#152033",
-        muted: "#687083",
-        line: "#d8d0c3",
-        card: "#fbfaf6",
-        clay: "#c96f52",
-        sage: "#3d8c7a",
-        slate: "#435267"
+        paper: "#F3F1E8",
+        ink: "#141612",
+        muted: "#5C6157",
+        line: "#D5D2C5",
+        card: "#FBFAF4",
+        signal: "#B9E36A",
+        clay: "#B9E36A",
+        sage: "#6D756A",
+        slate: "#3B4036"
       },
       boxShadow: {
-        soft: "0 24px 80px rgba(35, 37, 42, 0.14)",
-        hair: "0 1px 0 rgba(21, 32, 51, 0.05)"
+        soft: "0 24px 80px rgba(20, 22, 18, 0.22)",
+        hair: "0 1px 0 rgba(20, 22, 18, 0.05)"
       }
     }
   },

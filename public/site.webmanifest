@@ -4,8 +4,8 @@
   "description": "Manual operasional untuk @akaanakbaik/pterodactyl-gateway v1.6.0.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f0e8",
-  "theme_color": "#f4f0e8",
+  "background_color": "#F3F1E8",
+  "theme_color": "#F3F1E8",
   "icons": [
     {
       "src": "/icon.svg",

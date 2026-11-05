@@ -1,15 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Bot, Check, ChevronRight, Code2, Command, Copy, ExternalLink, Github, Heart, Menu, Search, Shield, Sparkles, Trash2, X, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, RotateCcw, Search, ShieldCheck, Sun, Terminal, X } from "lucide-react";
 import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
 import "./styles.css";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type RouteState = { path: string; doc: DocSection };
 type RichPart = { type: "text"; value: string } | { type: "code"; value: string; title: string };
+type Theme = "light" | "dark";
+type CopyState = "idle" | "ok" | "error";
 
-const defaultAssistant: ChatMessage = { role: "assistant", content: `Halo! Aku AI docs assistant untuk ${PACKAGE_NAME} v${SDK_VERSION}. Tanya install, CLI, SDK, retry, safe mode, file, backup, bot, website API, error, atau release.` };
+const THEME_KEY = "ptg-theme-v1";
+const CHAT_KEY = "ptg-ai-chat-v2";
+const defaultAssistant: ChatMessage = { role: "assistant", content: `Halo. Aku asisten dokumentasi ${PACKAGE_NAME} v${SDK_VERSION}. Tanya soal instalasi, CLI, SDK, retry, safe mode, file, backup, bot, website API, atau error panel.` };
 const commandPattern = /^\s*(\$\s*)?(npm|npx|pnpm|yarn|ptero-|ptg\b|ptero-wizard|git|cd|rm|cp|mv|mkdir|curl|wget|sudo|node|tsc|vite|vercel|export|cat|grep|docker|systemctl|journalctl|chmod|chown|ls\b|which\b|echo\b|tar\b)\b/i;
 
 function normalize(value: string) {
@@ -27,7 +31,6 @@ function navigateTo(path: string) {
   if (!doc) return;
   window.history.pushState({}, "", doc.path);
   window.dispatchEvent(new PopStateEvent("popstate"));
-  setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 40);
 }
 
 function scoreDoc(doc: DocSection, query: string) {
@@ -42,6 +45,522 @@ function scoreDoc(doc: DocSection, query: string) {
     if (haystack.includes(term)) score += 1;
     return score;
   }, 0);
+}
+
+function getInitialTheme(): Theme {
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    undefined;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function useTheme() {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#111310" : "#F3F1E8");
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      undefined;
+    }
+  }, [theme]);
+
+  return { theme, toggleTheme: () => setTheme((current) => current === "dark" ? "light" : "dark") };
+}
+
+function useDialogFocus(open: boolean, onClose: () => void, ref: React.RefObject<HTMLDivElement>) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const node = ref.current;
+    if (!node) return;
+    const getFocusable = () => Array.from(node.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter((element) => element.getClientRects().length > 0);
+    const timer = window.setTimeout(() => getFocusable()[0]?.focus(), 40);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = getFocusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      previous?.focus();
+    };
+  }, [open, ref]);
+}
+
+type InternalLinkProps = Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & { path: string; onNavigate: (path: string) => void };
+
+function InternalLink({ path, onNavigate, children, ...props }: InternalLinkProps) {
+  return <a href={path} onClick={(event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    onNavigate(path);
+  }} {...props}>{children}</a>;
+}
+
+function App() {
+  const [route, setRoute] = useState<RouteState>(() => resolveRoute());
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const { theme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    const handler = () => setRoute(resolveRoute());
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  useEffect(() => {
+    document.title = `${route.doc.title} · Pterodactyl Gateway Docs`;
+    setScrollProgress(0);
+    window.scrollTo(0, 0);
+  }, [route.path, route.doc.title]);
+
+  useEffect(() => {
+    const update = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [route.path]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setMenuOpen(false);
+        setPaletteOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  function goTo(path: string) {
+    setMenuOpen(false);
+    setPaletteOpen(false);
+    if (path === route.path) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setRouteLoading(true);
+    navigateTo(path);
+    window.setTimeout(() => setRouteLoading(false), 480);
+  }
+
+  function openPalette() {
+    setMenuOpen(false);
+    setPaletteOpen(true);
+  }
+
+  return (
+    <div className="site-shell">
+      <a className="skip-link" href="#main-content">Lewati ke konten</a>
+      <Header
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onSearch={openPalette}
+        onMenu={() => setMenuOpen(true)}
+        onNavigate={goTo}
+        routeLoading={routeLoading}
+      />
+      <div className="read-progress" aria-hidden="true"><span style={{ transform: `scaleX(${scrollProgress})` }} /></div>
+      <main id="main-content" className="page-grid">
+        <aside className="rail-left" aria-label="Navigasi dokumentasi">
+          <Sidebar activePath={route.path} onNavigate={goTo} onSearch={openPalette} />
+        </aside>
+        <div className="reading-column">
+          {route.doc.id === "overview" && <Landing onNavigate={goTo} />}
+          <DocArticle doc={route.doc} onNavigate={goTo} isOverview={route.doc.id === "overview"} />
+          <Footer onNavigate={goTo} />
+        </div>
+        <aside className="rail-right" aria-label="Konteks halaman">
+          <DocRail doc={route.doc} />
+        </aside>
+      </main>
+      <Assistant activeDoc={route.doc} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNavigate={goTo} />
+      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} activePath={route.path} onNavigate={goTo} onSearch={openPalette} onAssistant={() => { setMenuOpen(false); window.dispatchEvent(new Event("open-ai")); }} />
+    </div>
+  );
+}
+
+function Header({ theme, toggleTheme, onSearch, onMenu, onNavigate, routeLoading }: { theme: Theme; toggleTheme: () => void; onSearch: () => void; onMenu: () => void; onNavigate: (path: string) => void; routeLoading: boolean }) {
+  return (
+    <header className="site-header">
+      <div className="header-inner">
+        <InternalLink path="/docs/overview" onNavigate={onNavigate} className="brand" aria-label="Pterodactyl Gateway Docs, kembali ke pengenalan">
+          <img src="/icon.svg" alt="" width="30" height="30" />
+          <span className="brand-copy">
+            <span className="brand-name">Pterodactyl Gateway</span>
+            <span className="brand-meta">Docs v{SDK_VERSION}</span>
+          </span>
+        </InternalLink>
+        <nav className="header-nav" aria-label="Navigasi utama">
+          <InternalLink path="/docs/install" onNavigate={onNavigate}>Mulai</InternalLink>
+          <InternalLink path="/docs/sdk" onNavigate={onNavigate}>SDK</InternalLink>
+          <InternalLink path="/docs/cli-create-server" onNavigate={onNavigate}>CLI</InternalLink>
+          <InternalLink path="/docs/integrations/telegram-bot" onNavigate={onNavigate}>Integrasi</InternalLink>
+        </nav>
+        <div className="header-actions">
+          <button type="button" className="search-trigger" onClick={onSearch} aria-label="Cari dokumentasi">
+            <Search className="icon" aria-hidden="true" />
+            <span>Cari</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <button type="button" className="icon-button theme-button" onClick={toggleTheme} aria-label={`Ganti ke mode ${theme === "dark" ? "terang" : "gelap"}`} title={`Mode ${theme === "dark" ? "terang" : "gelap"}`}>
+            {theme === "dark" ? <Sun className="icon" aria-hidden="true" /> : <Moon className="icon" aria-hidden="true" />}
+          </button>
+          <a className="icon-button github-button" href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="Buka repositori GitHub">
+            <Github className="icon" aria-hidden="true" />
+            <span>GitHub</span>
+          </a>
+          <button type="button" className="icon-button menu-button" onClick={onMenu} aria-label="Buka menu dokumentasi">
+            <Menu className="icon" aria-hidden="true" />
+            <span className="menu-label">Menu</span>
+          </button>
+        </div>
+      </div>
+      <AnimatePresence>{routeLoading && <motion.div className="route-line" initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} />}</AnimatePresence>
+    </header>
+  );
+}
+
+function Landing({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const groups = navGroups.filter((group) => group !== "Legal");
+  return (
+    <div className="landing">
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <p className="kicker"><span>01</span> Manual operasional</p>
+          <h1 id="hero-title">Panel Pterodactyl, satu jalur yang bisa diaudit.</h1>
+          <p className="hero-lede">SDK TypeScript, CLI, dan pola provisioning untuk Pterodactyl v1 dan v2. Mulai dari key yang benar, uji dengan dry-run, lalu jalankan operasi yang tercatat.</p>
+          <div className="hero-actions">
+            <InternalLink path="/docs/install" onNavigate={onNavigate} className="button button-primary"><BookOpen className="icon" aria-hidden="true" /> Mulai dari instalasi</InternalLink>
+            <InternalLink path="/docs/panel-compat" onNavigate={onNavigate} className="button button-secondary">Baca jalur v1 dan v2</InternalLink>
+          </div>
+        </div>
+        <aside className="ledger" aria-label="Ringkasan rilis">
+          <div className="ledger-head"><span>Rilis saat ini</span><span className="ledger-status">npm latest</span></div>
+          <div className="ledger-version">v{SDK_VERSION}</div>
+          <dl className="ledger-facts">
+            <div><dt>Paket</dt><dd>{PACKAGE_NAME}</dd></div>
+            <div><dt>Runtime</dt><dd>Node &gt;=18</dd></div>
+            <div><dt>Panel</dt><dd>v1 + v2 beta</dd></div>
+            <div><dt>Lisensi</dt><dd>MIT</dd></div>
+          </dl>
+          <a className="ledger-link" href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer">Lihat package di npm <ExternalLink className="icon" aria-hidden="true" /></a>
+        </aside>
+      </section>
+
+      <section className="section" aria-labelledby="paths-title">
+        <SectionHead index="02" title="Pilih pekerjaan, bukan menu." id="paths-title" lede="Tiga jalur yang paling sering dipakai. Setiap jalur berakhir di halaman yang bisa langsung diikuti." />
+        <div className="path-list">
+          <InternalLink path="/docs/sdk" onNavigate={onNavigate} className="path-row">
+            <span className="path-index">01</span>
+            <span className="path-copy"><span className="path-title">Bangun backend dan bot</span><span className="path-desc">Buat instance gateway, preview payload, lalu kontrol server lewat handle Client API.</span></span>
+            <span className="path-tag">SDK</span>
+          </InternalLink>
+          <InternalLink path="/docs/cli-create-server" onNavigate={onNavigate} className="path-row">
+            <span className="path-index">02</span>
+            <span className="path-copy"><span className="path-title">Operasikan panel dari terminal</span><span className="path-desc">Cek ID, jalankan dry-run, buat resource, probe, dan bersihkan dari satu alur CLI.</span></span>
+            <span className="path-tag">CLI</span>
+          </InternalLink>
+          <InternalLink path="/docs/integrations/telegram-bot" onNavigate={onNavigate} className="path-row">
+            <span className="path-index">03</span>
+            <span className="path-copy"><span className="path-title">Hubungkan bot dan website</span><span className="path-desc">Pisahkan credential backend, batasi aksi user, dan kirim status server yang bisa dibaca.</span></span>
+            <span className="path-tag">Integrasi</span>
+          </InternalLink>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="index-title">
+        <SectionHead index="03" title="Indeks dokumentasi." id="index-title" lede="Semua halaman yang tersedia, dikelompokkan sesuai pekerjaan." />
+        <div className="index-grid">
+          {groups.map((group, index) => <div className="index-group" key={group}>
+            <h3><span>{String(index + 1).padStart(2, "0")}</span>{group}</h3>
+            <ul>
+              {docs.filter((doc) => doc.group === group).map((doc) => <li key={doc.path}><InternalLink path={doc.path} onNavigate={onNavigate}><span>{doc.title}</span><span>{doc.tags[0]}</span></InternalLink></li>)}
+            </ul>
+          </div>)}
+        </div>
+      </section>
+
+      <section className="discipline" aria-labelledby="discipline-title">
+        <div>
+          <p className="kicker"><span>04</span> Yang dijaga</p>
+          <h2 id="discipline-title">Operasi yang tidak menebak.</h2>
+          <p className="section-lede">Perilaku berikut adalah bagian dari kontrak package, bukan tambahan dekoratif.</p>
+        </div>
+        <ul>
+          <li><ShieldCheck className="icon" aria-hidden="true" /><span><strong>Safe mode aktif secara default</strong>Operasi destruktif membutuhkan konfirmasi yang terlihat.</span></li>
+          <li><Terminal className="icon" aria-hidden="true" /><span><strong>POST tidak diulang otomatis</strong>Retry mutation hanya lewat opt-in yang eksplisit.</span></li>
+          <li><Package className="icon" aria-hidden="true" /><span><strong>Satu API untuk v1 dan v2</strong>Deteksi panel memilih endpoint dan payload yang sesuai.</span></li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function SectionHead({ index, title, id, lede }: { index: string; title: string; id: string; lede: string }) {
+  return <header className="section-head"><span className="section-index">{index}</span><div><h2 id={id}>{title}</h2><p className="section-lede">{lede}</p></div></header>;
+}
+
+function Sidebar({ activePath, onNavigate, onSearch }: { activePath: string; onNavigate: (path: string) => void; onSearch: () => void }) {
+  const groups = navGroups.filter((group) => group !== "Legal");
+  return (
+    <nav className="rail-nav" aria-label="Daftar halaman">
+      <button type="button" className="rail-search" onClick={onSearch}>
+        <Search className="icon" aria-hidden="true" />
+        <span>Cari dokumentasi</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+      {groups.map((group, groupIndex) => <div className="nav-group" key={group}>
+        <p className="nav-group-label"><span>{String(groupIndex + 1).padStart(2, "0")}</span>{group}</p>
+        <ul>
+          {docs.filter((doc) => doc.group === group).map((doc) => <li key={doc.path}>
+            <InternalLink path={doc.path} onNavigate={onNavigate} className="nav-link" aria-current={doc.path === activePath ? "page" : undefined}>{doc.title}</InternalLink>
+          </li>)}
+        </ul>
+      </div>)}
+      <div className="rail-foot">
+        <a href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer">npm <ExternalLink className="icon" aria-hidden="true" /></a>
+        <a href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer">GitHub <ExternalLink className="icon" aria-hidden="true" /></a>
+      </div>
+    </nav>
+  );
+}
+
+function DocRail({ doc }: { doc: DocSection }) {
+  const items = useMemo(() => {
+    const result = [{ id: "ringkasan", label: "Ringkasan" }];
+    if (doc.steps.length) result.push({ id: "langkah", label: "Langkah" });
+    if (doc.simulation.length) result.push({ id: "command", label: "Alur command" });
+    if (doc.code) result.push({ id: "contoh", label: "Contoh utama" });
+    if (doc.examples.length) result.push({ id: "referensi", label: "Referensi lain" });
+    return result;
+  }, [doc]);
+  const [activeId, setActiveId] = useState(items[0]?.id ?? "ringkasan");
+
+  useEffect(() => {
+    setActiveId(items[0]?.id ?? "ringkasan");
+    const elements = items.map((item) => document.getElementById(item.id)).filter((element): element is HTMLElement => Boolean(element));
+    if (elements.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (visible) setActiveId(visible.target.id);
+    }, { rootMargin: "-18% 0px -68% 0px", threshold: 0 });
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [items]);
+
+  return <div className="doc-rail-content">
+    <nav className="toc" aria-label="Di halaman ini">
+      <p className="toc-title">Di halaman ini</p>
+      {items.map((item, index) => <a key={item.id} href={`#${item.id}`} className={activeId === item.id ? "is-active" : undefined}><span>{String(index + 1).padStart(2, "0")}</span>{item.label}</a>)}
+    </nav>
+    {doc.id !== "overview" && <div className="release-card">
+      <p className="release-label">Rilis</p>
+      <p className="release-version">v{SDK_VERSION}</p>
+      <p className="release-note">Node &gt;=18. Pterodactyl v1 dan v2 beta.</p>
+      <a href={`${NPM_PACKAGE_URL}/v/${SDK_VERSION}`} target="_blank" rel="noreferrer">Lihat versi ini <ExternalLink className="icon" aria-hidden="true" /></a>
+    </div>}
+  </div>;
+}
+
+function DocArticle({ doc, onNavigate, isOverview }: { doc: DocSection; onNavigate: (path: string) => void; isOverview: boolean }) {
+  const Heading = isOverview ? "h2" : "h1";
+  const index = docs.findIndex((item) => item.path === doc.path);
+  const previous = index > 0 ? docs[index - 1] : undefined;
+  const next = index >= 0 && index < docs.length - 1 ? docs[index + 1] : undefined;
+  return <motion.article key={doc.path} className="article" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}>
+      <nav className="breadcrumbs" aria-label="Breadcrumb"><InternalLink path="/docs/overview" onNavigate={onNavigate}>Docs</InternalLink><span aria-hidden="true">/</span><span>{doc.group}</span><span aria-hidden="true">/</span><span aria-current="page">{doc.title}</span></nav>
+      <header className="doc-header">
+        <Heading className="doc-title">{doc.title}</Heading>
+        <p className="doc-summary">{doc.summary}</p>
+        <div className="doc-meta"><span>{doc.group}</span><span>{doc.path}</span><span>{doc.tags.slice(0, 2).join(" / ")}</span></div>
+        <div className="doc-tags" aria-label="Tag halaman">{doc.tags.map((tag) => <span className="doc-tag" key={tag}>{tag}</span>)}</div>
+      </header>
+      <aside className="beginner-note"><span className="beginner-label">Sebelum mulai</span><p>{doc.beginner}</p></aside>
+      <div id="ringkasan" className="doc-body">{doc.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+      {doc.steps.length > 0 && <section className="doc-section" aria-labelledby="langkah">
+        <div className="doc-section-head"><span>02</span><h2 id="langkah">Langkah</h2></div>
+        <ol className="step-list">{doc.steps.map((step, stepIndex) => <li className="step" key={step.title}>
+          <span className="step-number">{String(stepIndex + 1).padStart(2, "0")}</span>
+          <div className="step-copy"><h3>{step.title}</h3><p>{step.detail}</p>{step.command && <CopyableBlock code={step.command} label="command" compact />}</div>
+        </li>)}</ol>
+      </section>}
+      {doc.simulation.length > 0 && <section className="doc-section" aria-labelledby="command">
+        <div className="doc-section-head"><span>03</span><h2 id="command">Alur command</h2></div>
+        <CommandSequence steps={doc.simulation} />
+      </section>}
+      {doc.code && <section className="doc-section" aria-labelledby="contoh">
+        <div className="doc-section-head"><span>04</span><h2 id="contoh">Contoh utama</h2></div>
+        <CopyableBlock code={doc.code} label="main example" />
+      </section>}
+      {doc.examples.length > 0 && <section className="doc-section" aria-labelledby="referensi">
+        <div className="doc-section-head"><span>05</span><h2 id="referensi">Referensi lain</h2></div>
+        <div className="example-stack">{doc.examples.map((example) => <CopyableBlock key={example.title} code={example.code} label={example.title} />)}</div>
+      </section>}
+      <nav className="doc-pager" aria-label="Halaman sebelumnya dan berikutnya">
+        {previous ? <InternalLink path={previous.path} onNavigate={onNavigate} className="pager-link"><span><ChevronLeft className="icon" aria-hidden="true" /> Sebelumnya</span><strong>{previous.title}</strong></InternalLink> : <span className="pager-spacer" />}
+        {next ? <InternalLink path={next.path} onNavigate={onNavigate} className="pager-link pager-next"><span>Berikutnya <ChevronRight className="icon" aria-hidden="true" /></span><strong>{next.title}</strong></InternalLink> : <span className="pager-spacer" />}
+      </nav>
+    </motion.article>;
+}
+
+function CommandSequence({ steps }: { steps: SimulationStep[] }) {
+  const [active, setActive] = useState(0);
+  useEffect(() => setActive(0), [steps]);
+  const step = steps[active] ?? steps[0];
+  if (!step) return null;
+  return <div className="runner">
+    <div className="runner-head"><span>Command sequence</span><span>{steps.length} skenario</span></div>
+    <div className="runner-tabs" role="tablist" aria-label="Pilih skenario command">
+      {steps.map((item, index) => <button type="button" key={item.label} role="tab" id={`runner-tab-${index}`} aria-selected={index === active} aria-controls="runner-panel" className="runner-tab" onClick={() => setActive(index)}>{index + 1}. {item.label}</button>)}
+    </div>
+    <div className="runner-body" id="runner-panel" role="tabpanel" aria-labelledby={`runner-tab-${active}`}>
+      <div className="runner-command"><span className="runner-prompt" aria-hidden="true">$</span><code>{step.terminal}</code><CopyButton value={step.terminal} label="Salin command" /></div>
+      <div className="runner-output"><span>Output</span><pre>{step.result}</pre></div>
+    </div>
+  </div>;
+}
+
+function CopyableBlock({ code, label = "code", compact = false }: { code: string; label?: string; compact?: boolean }) {
+  return <div className={`code-block ${compact ? "is-compact" : ""}`}>
+    <div className="code-head"><span className="code-label">{label}</span><CopyButton value={code} label="Salin kode" /></div>
+    <pre tabIndex={0} aria-label={`Contoh ${label}`}><code>{code}</code></pre>
+  </div>;
+}
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [state, setState] = useState<CopyState>("idle");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setState("ok");
+    } catch {
+      setState("error");
+    }
+    window.setTimeout(() => setState("idle"), 1600);
+  }
+  return <button type="button" className="copy-button" onClick={() => void copy()} aria-label={label}>{state === "ok" ? <Check className="icon" aria-hidden="true" /> : <Copy className="icon" aria-hidden="true" />}<span>{state === "ok" ? "Tersalin" : state === "error" ? "Gagal" : "Salin"}</span></button>;
+}
+
+function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
+  return <footer className="site-footer">
+    <div><strong>Pterodactyl Gateway Docs</strong><p>Dokumentasi package {PACKAGE_NAME} v{SDK_VERSION}. Contoh memakai placeholder, bukan credential panel.</p></div>
+    <nav aria-label="Tautan footer"><a href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer">npm</a><a href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer">GitHub</a><InternalLink path="/privacy" onNavigate={onNavigate}>Privacy</InternalLink><InternalLink path="/terms" onNavigate={onNavigate}>Terms</InternalLink></nav>
+    <p className="footer-version">v{SDK_VERSION} / MIT</p>
+  </footer>;
+}
+
+function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (path: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, onClose, panelRef);
+  const results = useMemo(() => docs.map((doc) => ({ doc, score: scoreDoc(doc, query) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score).map((entry) => entry.doc).slice(0, 10), [query]);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setActive(0);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setActive(0);
+  }, [query]);
+
+  function select(path: string) {
+    onNavigate(path);
+    onClose();
+  }
+
+  return <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <button type="button" className="dialog-backdrop" onClick={onClose} aria-label="Tutup pencarian" />
+    <motion.div ref={panelRef} className="palette-panel" role="dialog" aria-modal="true" aria-labelledby="palette-title" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} transition={{ duration: 0.15 }}>
+      <div className="palette-input-row"><Search className="icon" aria-hidden="true" /><label className="sr-only" htmlFor="palette-input">Cari dokumentasi</label><input id="palette-input" className="palette-input" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setActive((value) => Math.min(value + 1, results.length - 1));
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setActive((value) => Math.max(value - 1, 0));
+        } else if (event.key === "Enter" && results[active]) {
+          event.preventDefault();
+          select(results[active].path);
+        }
+      }} placeholder="Cari: install, retry, backup, telegram..." autoComplete="off" spellCheck={false} /></div>
+      <div className="palette-results" role="listbox" aria-labelledby="palette-title">
+        <p className="palette-group" id="palette-title">{query ? "Hasil pencarian" : "Mulai dari sini"}</p>
+        {results.length === 0 ? <div className="palette-empty"><p>Tidak ada halaman yang cocok.</p><span>Coba kata lain seperti install, retry, file, atau backup.</span></div> : results.map((doc, index) => <a key={doc.path} href={doc.path} role="option" aria-selected={index === active} className="palette-option" onMouseEnter={() => setActive(index)} onClick={(event) => {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          select(doc.path);
+        }}>
+          <span className="palette-index">{String(index + 1).padStart(2, "0")}</span>
+          <span className="palette-copy"><strong>{doc.title}</strong><span>{doc.group} / {doc.summary}</span></span>
+          <span className="palette-path">{doc.path}</span>
+        </a>)}
+      </div>
+      <div className="palette-footer"><span><kbd>Enter</kbd> buka</span><span><kbd>Esc</kbd> tutup</span><span>{results.length} halaman</span></div>
+    </motion.div>
+  </motion.div>}</AnimatePresence>;
+}
+
+function parseRichContent(content: string): RichPart[] {
+  const parts: RichPart[] = [];
+  const fence = /```([^\n`]*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = fence.exec(content)) !== null) {
+    const before = content.slice(lastIndex, match.index);
+    parts.push(...splitTextAndCommandBlocks(before));
+    const value = match[2]?.trim() ?? "";
+    if (value) parts.push({ type: "code", value, title: inferCodeTitle(match[1], value) });
+    lastIndex = fence.lastIndex;
+  }
+  parts.push(...splitTextAndCommandBlocks(content.slice(lastIndex)));
+  return parts;
 }
 
 function inferCodeTitle(language: string | undefined, value: string) {
@@ -89,263 +608,29 @@ function splitTextAndCommandBlocks(text: string): RichPart[] {
   return parts;
 }
 
-function parseRichContent(content: string): RichPart[] {
-  const parts: RichPart[] = [];
-  const fence = /```([^\n`]*)\n?([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = fence.exec(content)) !== null) {
-    const before = content.slice(lastIndex, match.index);
-    parts.push(...splitTextAndCommandBlocks(before));
-    const value = match[2]?.trim() ?? "";
-    if (value) parts.push({ type: "code", value, title: inferCodeTitle(match[1], value) });
-    lastIndex = fence.lastIndex;
-  }
-  parts.push(...splitTextAndCommandBlocks(content.slice(lastIndex)));
-  return parts;
-}
-
-function App() {
-  const [route, setRoute] = useState<RouteState>(() => resolveRoute());
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeProgress, setRouteProgress] = useState(0);
-  const [query, setQuery] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const handler = () => setRoute(resolveRoute());
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, []);
-
-  useEffect(() => {
-    document.title = `${route.doc.title} · Pterodactyl Gateway Docs`;
-  }, [route.doc.title]);
-
-  const filteredDocs = useMemo(() => docs.map((doc) => ({ doc, score: scoreDoc(doc, query) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score).map((entry) => entry.doc), [query]);
-
-  function goTo(path: string, source: "desktop" | "mobile" | "default" = "default") {
-    if (path === route.path) return;
-    setRouteLoading(true);
-    setRouteProgress(12);
-    window.setTimeout(() => {
-      navigateTo(path);
-      if (source === "mobile") setMenuOpen(false);
-      setRouteProgress(82);
-    }, 260);
-    window.setTimeout(() => { setRouteProgress(100); window.setTimeout(() => { setRouteLoading(false); setRouteProgress(0); }, 160); }, 390);
-  }
-
-  function handleSearch(value: string) {
-    setQuery(value);
-    const best = docs.map((doc) => ({ doc, score: scoreDoc(doc, value) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score)[0]?.doc;
-    if (value.trim() && best && best.path !== route.path) navigateTo(best.path);
-  }
-
-  return (
-    <div className="app-shell min-h-screen overflow-x-hidden bg-paper text-ink">
-      <div className="motion-orb orb-clay pointer-events-none fixed left-[-7rem] top-20 h-56 w-56 rounded-full bg-clay/10 blur-3xl sm:h-64 sm:w-64" />
-      <div className="motion-orb orb-sage pointer-events-none fixed right-[-8rem] top-40 h-56 w-56 rounded-full bg-sage/10 blur-3xl sm:h-72 sm:w-72" />
-      <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} routeLoading={routeLoading} routeProgress={routeProgress} goTo={goTo} />
-      <main className="relative mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-8 pt-20 sm:px-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-6 lg:pb-12 lg:pt-24">
-        <section className="min-w-0 space-y-4 overflow-hidden">
-          {route.path === "/docs/overview" && <Hero />}
-          <div className="lg:hidden"><SearchBox query={query} setQuery={handleSearch} /></div>
-          <QuickStats />
-          <DocsPage doc={route.doc} filteredDocs={filteredDocs} />
-          <Footer />
-        </section>
-        <aside className="hidden min-w-0 lg:block"><Sidebar query={query} setQuery={handleSearch} activePath={route.path} filteredDocs={filteredDocs} onNavigate={(path) => goTo(path, "desktop")} /></aside>
-      </main>
-      <FloatingAssistant activeDoc={route.doc} />
-      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} query={query} setQuery={handleSearch} activePath={route.path} filteredDocs={filteredDocs} onNavigate={(path) => goTo(path, "mobile")} />
-    </div>
-  );
-}
-
-function Header({ menuOpen, setMenuOpen, routeLoading, routeProgress, goTo }: { menuOpen: boolean; setMenuOpen: (value: boolean) => void; routeLoading: boolean; routeProgress: number; goTo: (path: string) => void }) {
-  return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-line/80 bg-paper/82 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-3 sm:px-5 lg:px-6">
-        <button className="min-w-0 flex items-center gap-2 text-left" onClick={() => goTo("/docs/overview")} aria-label="Akadev Pterodactyl Gateway Docs">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card shadow-hair"><img src="/manus-storage/pterodactyl-gateway-docs-logo_71d25669.png" alt="" className="h-7 w-7 object-contain" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} /></span>
-          <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-extrabold tracking-tight sm:text-base">Pterodactyl Gateway</span><span className="hidden text-[11px] font-medium text-muted sm:block">Stable npm docs · v{SDK_VERSION}</span></span>
-        </button>
-        <nav className="hidden items-center gap-2 md:flex">
-          <button className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" onClick={() => goTo("/docs/install")}>Install</button>
-          <button className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" onClick={() => goTo("/docs/integrations/telegram-bot")}>Integrasi</button>
-          <button className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" onClick={() => window.dispatchEvent(new Event("open-ai"))}>AI</button>
-          <a className="rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-card hover:text-ink" href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer">npm</a>
-          <a className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-2 text-xs font-bold shadow-hair transition hover:border-clay/40" href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer"><Github className="h-3.5 w-3.5" /> GitHub</a>
-        </nav>
-        <button className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-card md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open menu">{menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}</button>
-      </div>
-      <AnimatePresence>{routeLoading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[3px] w-full bg-white/5"><div className="route-progress h-full bg-gradient-to-r from-clay via-sage to-clay" style={{ transform: `scaleX(${routeProgress / 100})` }} /></motion.div>}</AnimatePresence>
-    </header>
-  );
-}
-
-function Hero() {
-  return (
-    <section className="hero-card premium-card overflow-hidden rounded-[1.6rem] p-4 sm:rounded-[2rem] sm:p-8 lg:p-10">
-      <div className="hero-image" aria-hidden="true" />
-      <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.52fr)] lg:items-end">
-        <div className="max-w-3xl">
-          <div className="hero-motif" aria-hidden="true"><span /><span /><span /></div>
-          <div className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-card/88 px-3 py-1.5 text-xs font-bold text-slate shadow-hair"><Sparkles className="h-3.5 w-3.5 shrink-0 text-clay" /><span className="truncate">npm stable v{SDK_VERSION} · field-tested docs</span></div>
-          <h1 className="max-w-3xl text-3xl font-extrabold tracking-[-0.045em] text-ink sm:text-5xl lg:text-6xl">Dari API key ke panel yang bisa diuji.</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">Manual operasional untuk SDK TypeScript, CLI, provisioning, file manager, retry safety, safe mode, integrasi bot, dan deployment backend Pterodactyl.</p>
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-            <button onClick={() => navigateTo("/docs/install")} className="focus-ring inline-flex items-center justify-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white shadow-soft transition hover:translate-y-[-1px]">Buka quick start <ArrowRight className="h-4 w-4" /></button>
-            <a href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer" className="focus-ring inline-flex items-center justify-center gap-2 rounded-2xl border border-line bg-card px-4 py-3 text-sm font-bold text-ink shadow-hair transition hover:border-clay/40">Lihat package npm <ExternalLink className="h-4 w-4" /></a>
-          </div>
-        </div>
-        <div className="hidden overflow-hidden rounded-[1.35rem] border border-line/80 bg-card/88 p-2 shadow-soft lg:block">
-          <img src="/manus-storage/pterodactyl-gateway-docs-system_25489541.jpg" alt="Diagram abstrak hubungan API, CLI, dan server" className="aspect-[4/3] w-full rounded-[1rem] object-cover opacity-90" onError={(event) => { event.currentTarget.src = "/icon.svg"; }} />
-          <div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted"><span>system map</span><span className="text-sage">verified</span></div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function QuickStats() {
-  const items = [
-    { icon: Code2, label: "Docs", value: "operational map", tone: "clay", action: () => navigateTo("/docs/overview") },
-    { icon: Command, label: "Install", value: "npm v1.6.0", tone: "ink", action: () => navigateTo("/docs/install") },
-    { icon: Bot, label: "Assistant", value: "docs-aware", tone: "sage", action: () => window.dispatchEvent(new Event("open-ai")) },
-    { icon: Shield, label: "Guard", value: "safe by default", tone: "slate", action: () => navigateTo("/docs/security") }
-  ];
-  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{items.map((item) => <button key={item.label} onClick={item.action} className={`stat-card stat-${item.tone} min-w-0 p-3 text-left transition hover:-translate-y-0.5 sm:p-4`}><item.icon className="mb-3 h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted sm:text-[11px]">{item.label}</p><p className="mt-1 truncate text-xs font-extrabold text-ink sm:text-sm">{item.value}</p></button>)}</div>;
-}
-
-type SidebarProps = { query: string; setQuery: (value: string) => void; activePath: string; filteredDocs: DocSection[]; onNavigate?: (path: string) => void };
-
-function visibleDocs(docsList: DocSection[]) {
-  return docsList.filter((doc) => doc.group !== "Legal");
-}
-
-function Sidebar(props: SidebarProps) {
-  const list = visibleDocs(props.filteredDocs);
-  return (
-    <div className="sidebar-shell sticky top-24 max-h-[calc(100vh-7rem)] overflow-hidden rounded-[1.5rem] border border-line bg-card/88 p-3 shadow-soft backdrop-blur-xl">
-      <SearchBox query={props.query} setQuery={props.setQuery} />
-      <div className="sidebar-scroll mt-3 max-h-[calc(100vh-13rem)] space-y-4 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
-        {navGroups.filter((group) => group !== "Legal").map((group) => <div key={group}><p className="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">{group}</p><div className="space-y-1">{list.filter((doc) => doc.group === group).map((doc) => <DocNavButton key={doc.path} doc={doc} active={doc.path === props.activePath} onNavigate={props.onNavigate} />)}</div></div>)}
-      </div>
-    </div>
-  );
-}
-
-function SearchBox({ query, setQuery }: { query: string; setQuery: (value: string) => void }) {
-  return <label className="relative block min-w-0"><span className="sr-only">Cari dokumentasi</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input aria-label="Cari dokumentasi" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari: retry, telegram, install..." className="focus-ring h-11 w-full min-w-0 rounded-2xl border border-line bg-card/70 pl-9 pr-3 text-sm font-semibold text-ink outline-none transition placeholder:text-muted/70" /></label>;
-}
-
-function DocNavButton({ doc, active, onNavigate }: { doc: DocSection; active: boolean; onNavigate?: (path: string) => void }) {
-  return <button onClick={() => (onNavigate ? onNavigate(doc.path) : navigateTo(doc.path))} className={`focus-ring w-full min-w-0 rounded-2xl px-3 py-2.5 text-left transition ${active ? "bg-ink text-white shadow-soft" : "text-muted hover:bg-paper hover:text-ink"}`}><span className="flex min-w-0 items-center justify-between gap-2 text-xs font-extrabold"><span className="min-w-0 truncate">{doc.title}</span><ChevronRight className="h-3.5 w-3.5 shrink-0" /></span><span className={`mt-1 line-clamp-2 block text-[11px] leading-5 ${active ? "text-white/72" : "text-muted"}`}>{doc.summary}</span></button>;
-}
-
-function DocsPage({ doc, filteredDocs }: { doc: DocSection; filteredDocs: DocSection[] }) {
-  return (
-    <section className="min-w-0 space-y-4 overflow-hidden">
-      <AnimatePresence mode="wait"><motion.article key={doc.path} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="doc-card premium-card min-w-0 overflow-hidden rounded-[1.6rem] p-4 sm:rounded-[2rem] sm:p-7" data-group={doc.group}>
-        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2"><span className="rounded-full border border-line bg-paper px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">{doc.group}</span><span className="max-w-full truncate rounded-full bg-sage/10 px-2.5 py-1 text-[11px] font-bold text-sage">{doc.path}</span>{doc.tags.slice(0, 3).map((tag) => <span key={tag} className="max-w-full truncate rounded-full bg-clay/10 px-2.5 py-1 text-[11px] font-bold text-clay">{tag}</span>)}</div>
-        <h1 className="break-words text-2xl font-extrabold tracking-[-0.035em] sm:text-4xl">{doc.title}</h1>
-        <p className="mt-3 text-sm font-semibold leading-7 text-muted sm:text-base">{doc.summary}</p>
-        <div className="mt-4 rounded-2xl border border-line bg-card/70 p-4 text-sm font-semibold leading-7 text-slate"><Zap className="mb-2 h-4 w-4 text-clay" /> {doc.beginner}</div>
-        <div className="prose-doc mt-5 space-y-4 text-sm sm:text-base">{doc.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
-        <TutorialSteps steps={doc.steps} />
-        <TerminalSimulation steps={doc.simulation} />
-        {doc.code && <CopyableBlock code={doc.code} label="main example" />}
-        <Examples examples={doc.examples} />
-      </motion.article></AnimatePresence>
-      <NextDocs current={doc} filteredDocs={visibleDocs(filteredDocs)} />
-    </section>
-  );
-}
-
-function TutorialSteps({ steps }: { steps: DocSection["steps"] }) {
-  return <div className="mt-6 grid gap-2"><h2 className="text-lg font-extrabold tracking-[-0.02em]">Langkah tutorial</h2>{steps.map((step, index) => <motion.div key={step.title} initial={{ opacity: 0, x: -6 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "0px 0px -10% 0px" }} transition={{ delay: index * 0.035, duration: 0.18, ease: [0.23, 1, 0.32, 1] }} className="min-w-0 overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-hair"><div className="flex min-w-0 gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-ink text-xs font-extrabold text-white">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="break-words text-sm font-extrabold">{step.title}</h3><p className="mt-1 text-sm leading-6 text-muted">{step.detail}</p>{step.command && <CopyableBlock code={step.command} compact label="command" />}</div></div></motion.div>)}</div>;
-}
-
-function TerminalSimulation({ steps }: { steps: SimulationStep[] }) {
-  const [active, setActive] = useState(0);
-  const [typed, setTyped] = useState("");
-  const [showOutput, setShowOutput] = useState(false);
-  const step = steps[active] ?? steps[0];
-  const realOutput = (command: string) => {
-    const cmd = command.toLowerCase();
-    if (cmd.includes("self-check") || cmd.includes("version")) return `ptero-gateway self-check
-@akaanakbaik/pterodactyl-gateway@${SDK_VERSION}
-Self-check: OK
-Mode: installed
-✓ package.json: /usr/lib/node_modules/@akaanakbaik/pterodactyl-gateway/package.json
-✓ package-lock.json: not included in installed npm package; source-only check skipped
-✓ name: @akaanakbaik/pterodactyl-gateway
-✓ version: ${SDK_VERSION}
-✓ lock version: skipped
-✓ root lock version: skipped
-✓ bin ptero-gateway: dist/cli-entry.js
-✓ bin ptg: dist/cli-entry.js
-✓ bin ptero-wizard: dist/wizard-cli.js
-✓ prepublishOnly: npm run verify
-✓ node >=18: v22.22.2`;
-    if (cmd.includes("npm i") || cmd.includes("npm install")) return "added 1 package in 1s\nfound 0 vulnerabilities";
-    return step?.result ?? "Command completed successfully.";
-  };
-  useEffect(() => {
-    if (!step) return;
-    setTyped(""); setShowOutput(false);
-    let i = 0;
-    const iv = window.setInterval(() => {
-      i += 1; setTyped(step.terminal.slice(0, i));
-      if (i >= step.terminal.length) { window.clearInterval(iv); window.setTimeout(() => setShowOutput(true), 520); }
-    }, 42);
-    return () => window.clearInterval(iv);
-  }, [active, step]);
-  if (!step) return null;
-  return <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-line bg-[#0f1117] shadow-soft"><div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400/80" /><span className="h-2.5 w-2.5 rounded-full bg-yellow-300/80" /><span className="h-2.5 w-2.5 rounded-full bg-green-400/80" /><span className="ml-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/45">live debug output</span></div><button onClick={() => navigator.clipboard.writeText(step.terminal)} className="inline-flex items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14"><Copy className="h-3.5 w-3.5" /> Copy cmd</button></div><div className="p-4"><div className="mb-3 flex flex-wrap gap-1.5">{steps.map((item, index) => <button key={item.label} onClick={() => setActive(index)} className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${index === active ? "bg-clay text-white" : "bg-white/8 text-white/55 hover:bg-white/12"}`}>{index + 1}. {item.label}</button>)}</div><div className="rounded-2xl border border-white/15 bg-[#070b14] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"><pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words text-[12px] leading-6 text-[#e7ebf7] scrollbar-thin"><code><span className="text-emerald-300">root@9080d1eda66d18</span><span className="text-white/45">:~# </span>{typed}<span className="terminal-cursor">▍</span>{showOutput ? `
-${realOutput(step.terminal)}` : ""}</code></pre><div className="my-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="terminal-progress h-full rounded-full bg-clay" /></div></div></div></div>;
-}
-
-function Examples({ examples }: { examples: DocSection["examples"] }) {
-  return <div className="mt-6 grid gap-3"><h2 className="text-lg font-extrabold tracking-[-0.02em]">Contoh penggunaan</h2>{examples.map((example) => <CopyableBlock key={example.title} code={example.code} label={example.title} />)}</div>;
-}
-
-function NextDocs({ current, filteredDocs }: { current: DocSection; filteredDocs: DocSection[] }) {
-  const related = filteredDocs.filter((doc) => doc.path !== current.path).slice(0, 6);
-  return <div className="grid min-w-0 gap-2 md:grid-cols-2">{related.map((doc) => <button key={doc.path} onClick={() => navigateTo(doc.path)} className="glass-line focus-ring min-w-0 rounded-2xl p-4 text-left transition hover:border-clay/40 hover:bg-card"><p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">{doc.group}</p><h3 className="mt-2 break-words text-sm font-extrabold text-ink">{doc.title}</h3><p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">{doc.summary}</p></button>)}</div>;
-}
-
-function CopyableBlock({ code, label = "code", compact = false }: { code: string; label?: string; compact?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1400); }
-  return <div className={`${compact ? "mt-3" : "mt-4"} min-w-0 overflow-hidden rounded-2xl border border-line bg-[#0d1421] shadow-soft`}><div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2"><span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">{label}</span><button onClick={copy} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 transition hover:bg-white/14">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}</button></div><pre className={`${compact ? "max-h-48" : "max-h-[420px]"} max-w-full overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-6 text-[#dde7ff] scrollbar-thin`}><code>{code}</code></pre></div>;
-}
-
 function renderInline(value: string) {
   return value.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => {
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={`${part}-${index}`} className="assistant-inline-code">{part.slice(1, -1)}</code>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={`${part}-${index}`} className="inline-code">{part.slice(1, -1)}</code>;
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
     return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
   });
 }
 
 function MarkdownText({ value }: { value: string }) {
-  return <div className="assistant-markdown">{value.split("\n").map((line, index) => {
+  return <div className="message-markdown">{value.split("\n").map((line, index) => {
     const trimmed = line.trim();
-    if (!trimmed) return <div key={`space-${index}`} className="h-1.5" />;
+    if (!trimmed) return <div key={`space-${index}`} className="message-space" />;
     if (trimmed.startsWith("### ")) return <h4 key={index}>{renderInline(trimmed.slice(4))}</h4>;
     if (trimmed.startsWith("## ")) return <h3 key={index}>{renderInline(trimmed.slice(3))}</h3>;
     if (trimmed.startsWith("# ")) return <h3 key={index}>{renderInline(trimmed.slice(2))}</h3>;
-    if (/^[-*]\s+/.test(trimmed)) return <div key={index} className="assistant-list-row"><span className="assistant-list-mark">•</span><span>{renderInline(trimmed.replace(/^[-*]\s+/, ""))}</span></div>;
-    if (/^\d+\.\s+/.test(trimmed)) return <div key={index} className="assistant-list-row"><span className="assistant-list-mark">{trimmed.match(/^\d+/)?.[0]}</span><span>{renderInline(trimmed.replace(/^\d+\.\s+/, ""))}</span></div>;
+    if (/^[-*]\s+/.test(trimmed)) return <div key={index} className="message-list-row"><span aria-hidden="true">-</span><span>{renderInline(trimmed.replace(/^[-*]\s+/, ""))}</span></div>;
+    if (/^\d+\.\s+/.test(trimmed)) return <div key={index} className="message-list-row"><span>{trimmed.match(/^\d+/)?.[0]}</span><span>{renderInline(trimmed.replace(/^\d+\.\s+/, ""))}</span></div>;
     return <p key={index}>{renderInline(trimmed)}</p>;
   })}</div>;
 }
 
 function RichMessage({ content }: { content: string }) {
-  return <div className="space-y-2">{parseRichContent(content).map((part, index) => part.type === "code" ? <CopyableBlock key={index} code={part.value} label={part.title} compact /> : <MarkdownText key={index} value={part.value} />)}</div>;
+  return <div className="message-rich">{parseRichContent(content).map((part, index) => part.type === "code" ? <CopyableBlock key={index} code={part.value} label={part.title} compact /> : <MarkdownText key={index} value={part.value} />)}</div>;
 }
 
 async function readAiResponse(response: Response): Promise<{ answer?: string }> {
@@ -354,7 +639,7 @@ async function readAiResponse(response: Response): Promise<{ answer?: string }> 
   try {
     return JSON.parse(raw) as { answer?: string };
   } catch {
-    return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "AI sedang tidak tersedia. Gunakan search lokal atau baca halaman troubleshooting." };
+    return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "AI sedang tidak tersedia. Gunakan pencarian lokal atau buka halaman troubleshooting." };
   }
 }
 
@@ -372,13 +657,13 @@ function buildDocContext(doc: DocSection) {
   return `${sections.join("\n")}\n\nKonteks umum:\n${knowledgeBase.slice(0, 2500)}`.slice(0, 9000);
 }
 
-function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
+function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const stored = window.sessionStorage.getItem("ptg-ai-chat-v1");
+      const stored = window.sessionStorage.getItem(CHAT_KEY);
       if (!stored) return [defaultAssistant];
       const parsed = JSON.parse(stored) as ChatMessage[];
       return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-16) : [defaultAssistant];
@@ -389,6 +674,8 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
   const [lastFailed, setLastFailed] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, () => setOpen(false), panelRef);
 
   useEffect(() => {
     const handler = () => setOpen(true);
@@ -398,7 +685,7 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem("ptg-ai-chat-v1", JSON.stringify(messages.slice(-16)));
+      window.sessionStorage.setItem(CHAT_KEY, JSON.stringify(messages.slice(-16)));
     } catch {
       undefined;
     }
@@ -407,14 +694,7 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
   useEffect(() => {
     if (!open) return;
     const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   useEffect(() => {
@@ -450,7 +730,7 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
         ? "Waktu tunggu AI habis. Coba pertanyaan yang lebih singkat atau ulangi."
         : error instanceof Error && error.message
           ? error.message
-          : "AI sedang tidak tersedia. Gunakan search lokal atau baca halaman troubleshooting.";
+          : "AI sedang tidak tersedia. Gunakan pencarian lokal atau buka halaman troubleshooting.";
       setMessages((prev) => [...prev, { role: "assistant", content: message }]);
     } finally {
       window.clearTimeout(timer);
@@ -463,7 +743,7 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
     setLastFailed("");
     setQuestion("");
     try {
-      window.sessionStorage.removeItem("ptg-ai-chat-v1");
+      window.sessionStorage.removeItem(CHAT_KEY);
     } catch {
       undefined;
     }
@@ -471,92 +751,52 @@ function FloatingAssistant({ activeDoc }: { activeDoc: DocSection }) {
 
   const suggestions = [`Ringkas ${activeDoc.title}`, "Dukungan Pterodactyl v2", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara aman hapus server"];
 
-  return (
-    <div className="fixed bottom-3 left-3 right-3 z-50 flex flex-col items-end sm:bottom-5 sm:left-auto sm:right-5">
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.985 }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-            className="mb-3 flex max-h-[calc(100dvh-5rem)] w-full max-w-[400px] flex-col overflow-hidden rounded-[1.6rem] border border-line bg-card/95 p-3 shadow-soft backdrop-blur-xl sm:p-4"
-            role="dialog"
-            aria-label="AI docs assistant"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">
-                  <span className="ai-status-dot" aria-hidden="true" /> AI docs assistant
-                </p>
-                <h2 className="truncate text-sm font-extrabold">Tanya Pterodactyl Gateway</h2>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
-                <button title="Chat baru" aria-label="Chat baru" onClick={resetChat} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper text-muted hover:text-ink"><Trash2 className="h-4 w-4" /></button>
-                <button title="Tutup" aria-label="Tutup AI docs assistant" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-xl border border-line bg-paper"><X className="h-4 w-4" /></button>
-              </div>
-            </div>
-            <div ref={listRef} className="mt-3 h-[min(48vh,320px)] space-y-2 overflow-y-auto overscroll-contain pr-1 scrollbar-thin" aria-live="polite" aria-busy={loading}>
-              {messages.map((message, index) => (
-                <div key={`${message.role}-${index}`} className={`chat-bubble ${message.role === "user" ? "chat-bubble-user ml-8" : "chat-bubble-assistant mr-0 sm:mr-6"}`}>
-                  <span className="chat-bubble-label">{message.role === "user" ? "Anda" : "AI docs assistant"}</span>
-                  <RichMessage content={message.content} />
-                </div>
-              ))}
-              {loading && (
-                <div className="chat-bubble chat-bubble-assistant mr-6">
-                  <span className="chat-bubble-label">AI docs assistant</span>
-                  <div className="chat-loading"><span /> <span /> <span /></div>
-                </div>
-              )}
-            </div>
-            {lastFailed && !loading && (
-              <button onClick={() => ask(lastFailed)} className="mt-2 self-start rounded-full border border-line bg-paper px-3 py-1.5 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">Ulangi pertanyaan</button>
-            )}
-            <div className="chat-composer mt-3">
-              <span className="chat-composer-mark" aria-hidden="true">›</span>
-              <input
-                ref={inputRef}
-                aria-label="Tulis pertanyaan ke AI docs assistant"
-                value={question}
-                maxLength={1500}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void ask();
-                  }
-                }}
-                placeholder="Tanya docs..."
-                className="focus-ring min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-semibold outline-none placeholder:text-muted/70"
-              />
-              <button onClick={() => void ask()} disabled={loading || !question.trim()} className="focus-ring shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50">{loading ? "..." : "Ask"}</button>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] font-semibold text-muted">
-              <span>Enter kirim · Esc tutup</span>
-              <span>{question.length}/1500</span>
-            </div>
-            {messages.length <= 1 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {suggestions.map((item) => (
-                  <button key={item} onClick={() => void ask(item)} className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-bold text-muted transition hover:border-clay/40 hover:text-ink">{item}</button>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <button onClick={() => setOpen((value) => !value)} aria-label="Buka AI docs assistant" aria-expanded={open} className="focus-ring flex h-13 w-13 items-center justify-center rounded-2xl bg-ink p-4 text-white shadow-soft transition hover:translate-y-[-2px] sm:h-14 sm:w-14"><Bot className="h-6 w-6" /></button>
-    </div>
-  );
+  return <>
+    <button type="button" className="assistant-launch" onClick={() => setOpen(true)} aria-haspopup="dialog">
+      <MessageSquare className="icon" aria-hidden="true" />
+      <span>Tanya docs</span>
+    </button>
+    <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <button type="button" className="dialog-backdrop" onClick={() => setOpen(false)} aria-label="Tutup asisten dokumentasi" />
+      <motion.div ref={panelRef} className="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.16 }}>
+        <header className="assistant-head">
+          <div><p className="assistant-kicker">Konteks halaman</p><h2 id="assistant-title">Tanya dokumentasi</h2><p className="assistant-context">{activeDoc.title}</p></div>
+          <div className="assistant-head-actions">
+            <button type="button" className="icon-button" title="Mulai chat baru" aria-label="Mulai chat baru" onClick={resetChat}><RotateCcw className="icon" aria-hidden="true" /></button>
+            <button type="button" className="icon-button" title="Tutup asisten" aria-label="Tutup asisten dokumentasi" onClick={() => setOpen(false)}><X className="icon" aria-hidden="true" /></button>
+          </div>
+        </header>
+        <div ref={listRef} className="assistant-messages" aria-live="polite" aria-busy={loading}>
+          {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`message ${message.role === "user" ? "message-user" : "message-assistant"}`}>
+            <span className="message-label">{message.role === "user" ? "Anda" : "Asisten"}</span>
+            <RichMessage content={message.content} />
+          </div>)}
+          {loading && <div className="message message-assistant"><span className="message-label">Asisten</span><div className="thinking" aria-label="Menyusun jawaban"><span /><span /><span /><em>Menyusun jawaban</em></div></div>}
+        </div>
+        {lastFailed && !loading && <button type="button" className="retry-button" onClick={() => void ask(lastFailed)}>Ulangi pertanyaan</button>}
+        {messages.length <= 1 && <div className="suggestion-list">{suggestions.map((item) => <button type="button" key={item} onClick={() => void ask(item)}>{item}</button>)}</div>}
+        <form className="assistant-composer" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
+          <label className="sr-only" htmlFor="assistant-input">Tulis pertanyaan</label>
+          <input ref={inputRef} id="assistant-input" value={question} maxLength={1500} onChange={(event) => setQuestion(event.target.value)} placeholder="Tanya soal dokumentasi..." autoComplete="off" />
+          <button type="submit" disabled={loading || !question.trim()}>{loading ? "..." : "Kirim"}</button>
+        </form>
+        <p className="assistant-foot">Enter kirim. Esc tutup. Jangan kirim credential asli.</p>
+      </motion.div>
+    </motion.div>}</AnimatePresence>
+  </>;
 }
 
-function MobileMenu({ open, onClose, ...props }: SidebarProps & { open: boolean; onClose: () => void }) {
-  return <AnimatePresence>{open && <motion.div className="fixed inset-0 z-50 bg-ink/30 p-3 backdrop-blur-sm lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} className="h-full max-w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.5rem] bg-paper p-3 shadow-soft"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-extrabold">Docs menu</span><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-card"><X className="h-4 w-4" /></button></div><Sidebar {...props} activePath={props.activePath} setQuery={props.setQuery} /></motion.div></motion.div>}</AnimatePresence>;
-}
-
-function Footer() {
-  return <footer className="glass-line mb-20 mt-4 rounded-[1.5rem] p-4 text-center shadow-hair sm:mb-4"><p className="text-sm font-extrabold text-ink">Maintained by Akadev</p><p className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold text-muted">Operational docs for production systems <Heart className="h-3.5 w-3.5 fill-clay text-clay" /></p><div className="mt-3 flex flex-wrap justify-center gap-2"><button onClick={() => navigateTo("/privacy")} className="rounded-full border border-line bg-card px-3 py-2 text-xs font-bold text-muted transition hover:border-clay/40 hover:text-ink">Privacy</button><button onClick={() => navigateTo("/terms")} className="rounded-full border border-line bg-card px-3 py-2 text-xs font-bold text-muted transition hover:border-clay/40 hover:text-ink">Terms</button><a href={NPM_PACKAGE_URL} target="_blank" rel="noreferrer" className="rounded-full border border-line bg-ink px-3 py-2 text-xs font-bold text-white transition hover:translate-y-[-1px]">npm package</a></div></footer>;
+function MobileMenu({ open, onClose, activePath, onNavigate, onSearch, onAssistant }: { open: boolean; onClose: () => void; activePath: string; onNavigate: (path: string) => void; onSearch: () => void; onAssistant: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, onClose, panelRef);
+  return <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <button type="button" className="dialog-backdrop" onClick={onClose} aria-label="Tutup menu" />
+    <motion.div ref={panelRef} className="mobile-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} transition={{ duration: 0.16 }}>
+      <div className="mobile-sheet-head"><h2 id="mobile-menu-title">Menu dokumentasi</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Tutup menu"><X className="icon" aria-hidden="true" /></button></div>
+      <button type="button" className="mobile-assistant" onClick={() => { onClose(); onAssistant(); }}><MessageSquare className="icon" aria-hidden="true" /><span className="mobile-assistant-label">Tanya dokumentasi</span><span className="mobile-assistant-tag">AI</span></button>
+      <Sidebar activePath={activePath} onNavigate={(path) => { onClose(); onNavigate(path); }} onSearch={() => { onClose(); onSearch(); }} />
+    </motion.div>
+  </motion.div>}</AnimatePresence>;
 }
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);
