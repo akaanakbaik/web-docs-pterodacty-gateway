@@ -84,18 +84,17 @@ test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
   assert.match(system, /Node\.js 18/);
 });
 
-test("oversized context and questions keep the upstream URL within safe limits", () => {
+test("oversized context and questions keep the prompt below the provider limit", () => {
   const request = __testing.normalizeRequest({ question: `${"q".repeat(1500)}`, context: "x".repeat(100000) });
   assert.equal(request.status, 200);
   assert.equal(request.context.length, 6000);
   const prompt = __testing.buildSiputzxPrompt(request.question, request.context);
   const system = __testing.buildSiputzxSystem();
-  assert.ok(prompt.length <= 5000);
+  assert.ok(prompt.length <= 3900);
+  assert.ok(prompt.length < 4000);
   assert.ok(system.length <= 1200);
   assert.match(prompt, /Pertanyaan user:/);
   assert.match(system, /Akadev Pterodactyl Gateway Docs Assistant/);
-  const url = `https://api.siputzx.my.id/api/ai/gptoss120b?${new URLSearchParams({ prompt, system, temperature: "0.7" })}`;
-  assert.ok(url.length < 12000);
 });
 
 test("request validation rejects missing and oversized questions with actionable output", () => {

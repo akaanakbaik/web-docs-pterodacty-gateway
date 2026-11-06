@@ -6,7 +6,7 @@ app.use(express.json({ limit: "90kb" }));
 
 const MAX_QUESTION_LENGTH = 1500;
 const MAX_CONTEXT_LENGTH = 6000;
-const MAX_PROMPT_LENGTH = 5000;
+const MAX_PROMPT_LENGTH = 3900;
 const MAX_SYSTEM_LENGTH = 1200;
 const PROVIDER_TIMEOUT_MS = 12000;
 const PROVIDER_ATTEMPTS = 2;
