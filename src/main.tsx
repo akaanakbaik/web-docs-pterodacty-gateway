@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, RotateCcw, Search, ShieldCheck, Sun, Terminal, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, Play, RotateCcw, Search, ShieldCheck, SkipForward, Sun, Terminal, X } from "lucide-react";
 import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog";
+import { Progress } from "./components/ui/progress";
+import { Skeleton } from "./components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import "./styles.css";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -73,48 +80,6 @@ function useTheme() {
   }, [theme]);
 
   return { theme, toggleTheme: () => setTheme((current) => current === "dark" ? "light" : "dark") };
-}
-
-function useDialogFocus(open: boolean, onClose: () => void, ref: React.RefObject<HTMLDivElement>) {
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const node = ref.current;
-    if (!node) return;
-    const getFocusable = () => Array.from(node.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter((element) => element.getClientRects().length > 0);
-    const timer = window.setTimeout(() => getFocusable()[0]?.focus(), 40);
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeRef.current();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = getFocusable();
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-      previous?.focus();
-    };
-  }, [open, ref]);
 }
 
 type InternalLinkProps = Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & { path: string; onNavigate: (path: string) => void };
@@ -191,6 +156,7 @@ function App() {
   }
 
   return (
+    <TooltipProvider delayDuration={420}>
     <div className="site-shell">
       <a className="skip-link" href="#main-content">Lewati ke konten</a>
       <Header
@@ -201,6 +167,14 @@ function App() {
         onNavigate={goTo}
         routeLoading={routeLoading}
       />
+      <div className="spec-strip" aria-label="Spesifikasi rilis">
+        <div className="spec-strip-inner">
+          <span><strong>SDK</strong> v{SDK_VERSION}</span>
+          <span><strong>Runtime</strong> Node 18 / 20 / 22</span>
+          <span><strong>Panel</strong> v1 + v2 beta</span>
+          <span className="spec-strip-end">Dokumentasi resmi / MIT</span>
+        </div>
+      </div>
       <div className="read-progress" aria-hidden="true"><span style={{ transform: `scaleX(${scrollProgress})` }} /></div>
       <main id="main-content" className="page-grid">
         <aside className="rail-left" aria-label="Navigasi dokumentasi">
@@ -219,6 +193,7 @@ function App() {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNavigate={goTo} />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} activePath={route.path} onNavigate={goTo} onSearch={openPalette} onAssistant={() => { setMenuOpen(false); window.dispatchEvent(new Event("open-ai")); }} />
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -245,17 +220,32 @@ function Header({ theme, toggleTheme, onSearch, onMenu, onNavigate, routeLoading
             <span>Cari</span>
             <kbd>Ctrl K</kbd>
           </button>
-          <button type="button" className="icon-button theme-button" onClick={toggleTheme} aria-label={`Ganti ke mode ${theme === "dark" ? "terang" : "gelap"}`} title={`Mode ${theme === "dark" ? "terang" : "gelap"}`}>
-            {theme === "dark" ? <Sun className="icon" aria-hidden="true" /> : <Moon className="icon" aria-hidden="true" />}
-          </button>
-          <a className="icon-button github-button" href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="Buka repositori GitHub">
-            <Github className="icon" aria-hidden="true" />
-            <span>GitHub</span>
-          </a>
-          <button type="button" className="icon-button menu-button" onClick={onMenu} aria-label="Buka menu dokumentasi">
-            <Menu className="icon" aria-hidden="true" />
-            <span className="menu-label">Menu</span>
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="icon-button theme-button" onClick={toggleTheme} aria-label={`Ganti ke mode ${theme === "dark" ? "terang" : "gelap"}`}>
+                {theme === "dark" ? <Sun className="icon" aria-hidden="true" /> : <Moon className="icon" aria-hidden="true" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Mode {theme === "dark" ? "terang" : "gelap"}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a className="icon-button github-button" href={SDK_REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="Buka repositori GitHub">
+                <Github className="icon" aria-hidden="true" />
+                <span>GitHub</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Repositori SDK</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="icon-button menu-button" onClick={onMenu} aria-label="Buka menu dokumentasi">
+                <Menu className="icon" aria-hidden="true" />
+                <span className="menu-label">Menu</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Menu dokumentasi</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <AnimatePresence>{routeLoading && <motion.div className="route-line" initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} />}</AnimatePresence>
@@ -273,12 +263,12 @@ function Landing({ onNavigate }: { onNavigate: (path: string) => void }) {
           <h1 id="hero-title">Panel Pterodactyl, satu jalur yang bisa diaudit.</h1>
           <p className="hero-lede">SDK TypeScript, CLI, dan pola provisioning untuk Pterodactyl v1 dan v2. Mulai dari key yang benar, uji dengan dry-run, lalu jalankan operasi yang tercatat.</p>
           <div className="hero-actions">
-            <InternalLink path="/docs/install" onNavigate={onNavigate} className="button button-primary"><BookOpen className="icon" aria-hidden="true" /> Mulai dari instalasi</InternalLink>
-            <InternalLink path="/docs/panel-compat" onNavigate={onNavigate} className="button button-secondary">Baca jalur v1 dan v2</InternalLink>
+            <Button asChild variant="primary"><InternalLink path="/docs/install" onNavigate={onNavigate}><BookOpen className="icon" aria-hidden="true" /> Mulai dari instalasi</InternalLink></Button>
+            <Button asChild variant="secondary"><InternalLink path="/docs/panel-compat" onNavigate={onNavigate}>Baca jalur v1 dan v2</InternalLink></Button>
           </div>
         </div>
         <aside className="ledger" aria-label="Ringkasan rilis">
-          <div className="ledger-head"><span>Rilis saat ini</span><span className="ledger-status">npm latest</span></div>
+          <div className="ledger-head"><span>Rilis saat ini</span><Badge variant="signal" className="ledger-status">npm latest</Badge></div>
           <div className="ledger-version">v{SDK_VERSION}</div>
           <dl className="ledger-facts">
             <div><dt>Paket</dt><dd>{PACKAGE_NAME}</dd></div>
@@ -296,17 +286,17 @@ function Landing({ onNavigate }: { onNavigate: (path: string) => void }) {
           <InternalLink path="/docs/sdk" onNavigate={onNavigate} className="path-row">
             <span className="path-index">01</span>
             <span className="path-copy"><span className="path-title">Bangun backend dan bot</span><span className="path-desc">Buat instance gateway, preview payload, lalu kontrol server lewat handle Client API.</span></span>
-            <span className="path-tag">SDK</span>
+            <Badge variant="outline" className="path-tag">SDK</Badge>
           </InternalLink>
           <InternalLink path="/docs/cli-create-server" onNavigate={onNavigate} className="path-row">
             <span className="path-index">02</span>
             <span className="path-copy"><span className="path-title">Operasikan panel dari terminal</span><span className="path-desc">Cek ID, jalankan dry-run, buat resource, probe, dan bersihkan dari satu alur CLI.</span></span>
-            <span className="path-tag">CLI</span>
+            <Badge variant="outline" className="path-tag">CLI</Badge>
           </InternalLink>
           <InternalLink path="/docs/integrations/telegram-bot" onNavigate={onNavigate} className="path-row">
             <span className="path-index">03</span>
             <span className="path-copy"><span className="path-title">Hubungkan bot dan website</span><span className="path-desc">Pisahkan credential backend, batasi aksi user, dan kirim status server yang bisa dibaca.</span></span>
-            <span className="path-tag">Integrasi</span>
+            <Badge variant="outline" className="path-tag">Integrasi</Badge>
           </InternalLink>
         </div>
       </section>
@@ -416,7 +406,7 @@ function DocArticle({ doc, onNavigate, isOverview }: { doc: DocSection; onNaviga
         <Heading className="doc-title">{doc.title}</Heading>
         <p className="doc-summary">{doc.summary}</p>
         <div className="doc-meta"><span>{doc.group}</span><span>{doc.path}</span><span>{doc.tags.slice(0, 2).join(" / ")}</span></div>
-        <div className="doc-tags" aria-label="Tag halaman">{doc.tags.map((tag) => <span className="doc-tag" key={tag}>{tag}</span>)}</div>
+        <div className="doc-tags" aria-label="Tag halaman">{doc.tags.map((tag) => <Badge variant="muted" className="doc-tag" key={tag}>{tag}</Badge>)}</div>
       </header>
       <aside className="beginner-note"><span className="beginner-label">Sebelum mulai</span><p>{doc.beginner}</p></aside>
       <div id="ringkasan" className="doc-body">{doc.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
@@ -446,21 +436,151 @@ function DocArticle({ doc, onNavigate, isOverview }: { doc: DocSection; onNaviga
     </motion.article>;
 }
 
+type RunPhase = "idle" | "typing" | "running" | "output" | "done";
+
+function lineTone(line: string) {
+  if (/^(✓|ok\b|self-check: ok|selesai)/i.test(line) || /\bok\b/i.test(line)) return "is-ok";
+  if (/error|gagal|invalid|not found|ditolak/i.test(line)) return "is-warn";
+  if (/^(mode|apiVersion|current|payload|node|server|profile|tag|egg)/i.test(line)) return "is-key";
+  return "";
+}
+
 function CommandSequence({ steps }: { steps: SimulationStep[] }) {
   const [active, setActive] = useState(0);
-  useEffect(() => setActive(0), [steps]);
+  const [runKey, setRunKey] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const [phase, setPhase] = useState<RunPhase>("idle");
+  const [armed, setArmed] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<() => void>(() => undefined);
+  const reducedMotion = useReducedMotion();
   const step = steps[active] ?? steps[0];
+
+  useEffect(() => setActive(0), [steps]);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node || armed) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setArmed(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "0px 0px -18% 0px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [armed]);
+
+  useEffect(() => {
+    if (!step || !armed) return;
+    const output = step.result.split("\n");
+    const command = step.terminal;
+    const timers: number[] = [];
+    let cancelled = false;
+    const cancel = () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+    cancelRef.current = cancel;
+    const later = (callback: () => void, delay: number) => {
+      timers.push(window.setTimeout(() => {
+        if (!cancelled) callback();
+      }, delay));
+    };
+
+    setTyped("");
+    setVisibleLines([]);
+    setPhase("idle");
+
+    if (reducedMotion) {
+      setTyped(command);
+      setVisibleLines(output);
+      setPhase("done");
+      return cancel;
+    }
+
+    const revealLine = (index: number) => {
+      if (index >= output.length) {
+        setPhase("done");
+        return;
+      }
+      setPhase("output");
+      setVisibleLines(output.slice(0, index + 1));
+      later(() => revealLine(index + 1), output[index].trim() ? 170 : 260);
+    };
+
+    const typeCharacter = (index: number) => {
+      if (index >= command.length) {
+        setPhase("running");
+        later(() => revealLine(0), 720);
+        return;
+      }
+      setPhase("typing");
+      setTyped(command.slice(0, index + 1));
+      const character = command[index];
+      let delay = 46 + Math.random() * 26;
+      if (character === " ") delay += 16;
+      if ("/-._=".includes(character)) delay += 12;
+      if (";|".includes(character)) delay += 90;
+      if (character === "\n") delay += 220;
+      later(() => typeCharacter(index + 1), delay);
+    };
+
+    later(() => typeCharacter(0), 560);
+    return cancel;
+  }, [step, armed, runKey, reducedMotion]);
+
   if (!step) return null;
-  return <div className="runner">
-    <div className="runner-head"><span>Command sequence</span><span>{steps.length} skenario</span></div>
-    <div className="runner-tabs" role="tablist" aria-label="Pilih skenario command">
-      {steps.map((item, index) => <button type="button" key={item.label} role="tab" id={`runner-tab-${index}`} aria-selected={index === active} aria-controls="runner-panel" className="runner-tab" onClick={() => setActive(index)}>{index + 1}. {item.label}</button>)}
+
+  const output = step.result.split("\n");
+  const commandProgress = commandLength(step.terminal) ? typed.length / commandLength(step.terminal) : 0;
+  const outputProgress = output.length ? visibleLines.length / output.length : 0;
+  const progress = phase === "done" ? 100 : Math.min(99, Math.round(commandProgress * 58 + outputProgress * 42));
+  const status = phase === "idle" ? "menunggu" : phase === "typing" ? "mengetik" : phase === "running" ? "menjalankan" : phase === "output" ? "menulis output" : "selesai";
+
+  function skip() {
+    cancelRef.current();
+    setTyped(step.terminal);
+    setVisibleLines(output);
+    setPhase("done");
+  }
+
+  return <div className="runner" ref={rootRef}>
+    <div className="runner-head">
+      <div className="runner-title"><Terminal className="icon" aria-hidden="true" /><span>Simulasi terminal</span><Badge variant="outline" className="runner-badge">bukan respons panel</Badge></div>
+      <span className="runner-status" data-phase={phase}><span aria-hidden="true" /> {status}</span>
     </div>
-    <div className="runner-body" id="runner-panel" role="tabpanel" aria-labelledby={`runner-tab-${active}`}>
-      <div className="runner-command"><span className="runner-prompt" aria-hidden="true">$</span><code>{step.terminal}</code><CopyButton value={step.terminal} label="Salin command" /></div>
-      <div className="runner-output"><span>Output</span><pre>{step.result}</pre></div>
-    </div>
+    <Progress value={progress} className="runner-progress" aria-label="Progres simulasi command" />
+    <Tabs value={String(active)} onValueChange={(value) => { setActive(Number(value)); setRunKey((key) => key + 1); }}>
+      <TabsList className="runner-tabs" aria-label="Pilih skenario command">
+        {steps.map((item, index) => <TabsTrigger key={item.label} value={String(index)} className="runner-tab">{String(index + 1).padStart(2, "0")} {item.label}</TabsTrigger>)}
+      </TabsList>
+      <TabsContent value={String(active)} className="runner-body">
+        <div className="runner-command">
+          <span className="runner-prompt" aria-hidden="true"><span>~</span>/project $</span>
+          <code className="runner-typed">{typed}<span className={`runner-cursor ${phase === "done" ? "is-idle" : ""}`} aria-hidden="true" /></code>
+          <CopyButton value={step.terminal} label="Salin command" />
+        </div>
+        <div className="runner-output">
+          <div className="runner-output-head"><span>output</span>{phase === "running" || phase === "output" ? <span className="runner-live"><i aria-hidden="true" />live</span> : null}</div>
+          <pre aria-label={`Hasil simulasi ${step.label}`}>{visibleLines.map((line, index) => <span key={`${line}-${index}`} className={`runner-line ${lineTone(line)}`}>{line || " "}</span>)}{phase === "idle" || phase === "typing" ? <span className="runner-wait">menunggu command dikirim...</span> : null}</pre>
+        </div>
+        <div className="runner-foot">
+          <span className="runner-count">{step.label} / {String(active + 1).padStart(2, "0")} dari {String(steps.length).padStart(2, "0")}</span>
+          <div className="runner-actions">
+            {phase !== "done" && <Button type="button" variant="ghost" size="sm" onClick={skip}><SkipForward className="icon" aria-hidden="true" /> Lewati</Button>}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRunKey((key) => key + 1)}><Play className="icon" aria-hidden="true" /> {phase === "done" ? "Ulangi" : "Jalankan"}</Button>
+          </div>
+        </div>
+        <span className="sr-only" aria-live="polite">Simulasi {step.label}: {status}</span>
+      </TabsContent>
+    </Tabs>
   </div>;
+}
+
+function commandLength(value: string) {
+  return Math.max(1, value.length);
 }
 
 function CopyableBlock({ code, label = "code", compact = false }: { code: string; label?: string; compact?: boolean }) {
@@ -495,8 +615,6 @@ function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
 function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (path: string) => void }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, onClose, panelRef);
   const results = useMemo(() => docs.map((doc) => ({ doc, score: scoreDoc(doc, query) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score).map((entry) => entry.doc).slice(0, 10), [query]);
 
   useEffect(() => {
@@ -515,9 +633,10 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
     onClose();
   }
 
-  return <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-    <button type="button" className="dialog-backdrop" onClick={onClose} aria-label="Tutup pencarian" />
-    <motion.div ref={panelRef} className="palette-panel" role="dialog" aria-modal="true" aria-labelledby="palette-title" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} transition={{ duration: 0.15 }}>
+  return <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <DialogContent className="palette-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => document.getElementById("palette-input")?.focus(), 30); }}>
+      <DialogTitle className="sr-only">Cari dokumentasi</DialogTitle>
+      <DialogDescription className="sr-only">Cari halaman dokumentasi berdasarkan judul, tag, command, atau ringkasan.</DialogDescription>
       <div className="palette-input-row"><Search className="icon" aria-hidden="true" /><label className="sr-only" htmlFor="palette-input">Cari dokumentasi</label><input id="palette-input" className="palette-input" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
         if (event.key === "ArrowDown") {
           event.preventDefault();
@@ -543,8 +662,8 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
         </a>)}
       </div>
       <div className="palette-footer"><span><kbd>Enter</kbd> buka</span><span><kbd>Esc</kbd> tutup</span><span>{results.length} halaman</span></div>
-    </motion.div>
-  </motion.div>}</AnimatePresence>;
+    </DialogContent>
+  </Dialog>;
 }
 
 function parseRichContent(content: string): RichPart[] {
@@ -674,8 +793,6 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   const [lastFailed, setLastFailed] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, () => setOpen(false), panelRef);
 
   useEffect(() => {
     const handler = () => setOpen(true);
@@ -756,9 +873,10 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
       <MessageSquare className="icon" aria-hidden="true" />
       <span>Tanya docs</span>
     </button>
-    <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <button type="button" className="dialog-backdrop" onClick={() => setOpen(false)} aria-label="Tutup asisten dokumentasi" />
-      <motion.div ref={panelRef} className="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.16 }}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="assistant-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => inputRef.current?.focus(), 80); }}>
+        <DialogTitle className="sr-only">Tanya dokumentasi</DialogTitle>
+        <DialogDescription className="sr-only">Asisten menjawab berdasarkan halaman dokumentasi yang sedang dibuka.</DialogDescription>
         <header className="assistant-head">
           <div><p className="assistant-kicker">Konteks halaman</p><h2 id="assistant-title">Tanya dokumentasi</h2><p className="assistant-context">{activeDoc.title}</p></div>
           <div className="assistant-head-actions">
@@ -771,32 +889,31 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
             <span className="message-label">{message.role === "user" ? "Anda" : "Asisten"}</span>
             <RichMessage content={message.content} />
           </div>)}
-          {loading && <div className="message message-assistant"><span className="message-label">Asisten</span><div className="thinking" aria-label="Menyusun jawaban"><span /><span /><span /><em>Menyusun jawaban</em></div></div>}
+          {loading && <div className="message message-assistant"><span className="message-label">Asisten</span><div className="thinking" role="status"><div className="thinking-skeleton" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></div><em>Menyusun jawaban</em></div></div>}
         </div>
         {lastFailed && !loading && <button type="button" className="retry-button" onClick={() => void ask(lastFailed)}>Ulangi pertanyaan</button>}
         {messages.length <= 1 && <div className="suggestion-list">{suggestions.map((item) => <button type="button" key={item} onClick={() => void ask(item)}>{item}</button>)}</div>}
         <form className="assistant-composer" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
           <label className="sr-only" htmlFor="assistant-input">Tulis pertanyaan</label>
           <input ref={inputRef} id="assistant-input" value={question} maxLength={1500} onChange={(event) => setQuestion(event.target.value)} placeholder="Tanya soal dokumentasi..." autoComplete="off" />
-          <button type="submit" disabled={loading || !question.trim()}>{loading ? "..." : "Kirim"}</button>
+          <Button type="submit" variant="primary" size="sm" disabled={loading || !question.trim()}>{loading ? "..." : "Kirim"}</Button>
         </form>
         <p className="assistant-foot">Enter kirim. Esc tutup. Jangan kirim credential asli.</p>
-      </motion.div>
-    </motion.div>}</AnimatePresence>
+      </DialogContent>
+    </Dialog>
   </>;
 }
 
 function MobileMenu({ open, onClose, activePath, onNavigate, onSearch, onAssistant }: { open: boolean; onClose: () => void; activePath: string; onNavigate: (path: string) => void; onSearch: () => void; onAssistant: () => void }) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, onClose, panelRef);
-  return <AnimatePresence>{open && <motion.div className="dialog-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-    <button type="button" className="dialog-backdrop" onClick={onClose} aria-label="Tutup menu" />
-    <motion.div ref={panelRef} className="mobile-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" initial={{ x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} transition={{ duration: 0.16 }}>
+  return <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <DialogContent className="mobile-sheet">
+      <DialogTitle className="sr-only">Menu dokumentasi</DialogTitle>
+      <DialogDescription className="sr-only">Navigasi halaman, pencarian, dan asisten dokumentasi.</DialogDescription>
       <div className="mobile-sheet-head"><h2 id="mobile-menu-title">Menu dokumentasi</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Tutup menu"><X className="icon" aria-hidden="true" /></button></div>
-      <button type="button" className="mobile-assistant" onClick={() => { onClose(); onAssistant(); }}><MessageSquare className="icon" aria-hidden="true" /><span className="mobile-assistant-label">Tanya dokumentasi</span><span className="mobile-assistant-tag">AI</span></button>
+      <button type="button" className="mobile-assistant" onClick={() => { onClose(); onAssistant(); }}><MessageSquare className="icon" aria-hidden="true" /><span className="mobile-assistant-label">Tanya dokumentasi</span><Badge variant="muted" className="mobile-assistant-tag">AI</Badge></button>
       <Sidebar activePath={activePath} onNavigate={(path) => { onClose(); onNavigate(path); }} onSearch={() => { onClose(); onSearch(); }} />
-    </motion.div>
-  </motion.div>}</AnimatePresence>;
+    </DialogContent>
+  </Dialog>;
 }
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);

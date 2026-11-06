@@ -18,9 +18,9 @@ const jsAssets = assetNames.filter((name) => name.endsWith(".js"));
 const cssAssets = assetNames.filter((name) => name.endsWith(".css"));
 const bundle = jsAssets.map((name) => fs.readFileSync(path.join(assetsDir, name), "utf8")).join("\n");
 const styles = cssAssets.map((name) => fs.readFileSync(path.join(assetsDir, name), "utf8")).join("\n");
-const interfaceMarkers = ["Manual operasional", "Tanya docs", "Ctrl K", "Pilih pekerjaan, bukan menu."];
+const interfaceMarkers = ["Manual operasional", "Tanya docs", "Ctrl K", "Pilih pekerjaan, bukan menu.", "Simulasi terminal", "Lewati"];
 const missingInterface = interfaceMarkers.filter((marker) => !bundle.includes(marker));
-const missingStyle = ["Bricolage Grotesque", "IBM Plex Mono", ".assistant-panel", ".palette-panel"].filter((marker) => !styles.includes(marker));
+const missingStyle = ["Bricolage Grotesque", "IBM Plex Mono", ".assistant-panel", ".palette-panel", ".runner-cursor", ".ui-dialog-overlay", ".spec-strip"].filter((marker) => !styles.includes(marker));
 
 if (missing.length > 0) {
   console.error(`Missing build markers: ${missing.join(", ")}`);

@@ -43,6 +43,46 @@
 
     <title>Pterodactyl Gateway Docs v1.6.0</title>
 
+    <style>
+      .boot-sheet { min-height: 100vh; background: #F3F1E8; color: #141612; }
+      [data-theme="dark"] .boot-sheet { background: #111310; color: #EEF1E6; }
+      .boot-head { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 32px; border-bottom: 1px solid #D5D2C5; }
+      [data-theme="dark"] .boot-head { border-color: #30362C; }
+      .boot-logo { width: 30px; height: 30px; border: 1px solid #D5D2C5; border-radius: 6px; background: #FBFAF4; }
+      [data-theme="dark"] .boot-logo { border-color: #30362C; background: #171A15; }
+      .boot-nav { display: flex; gap: 16px; margin-left: 28px; }
+      .boot-line, .boot-panel, .boot-search { background: linear-gradient(90deg, #D5D2C5 0%, #FBFAF4 45%, #D5D2C5 90%); background-size: 240% 100%; animation: bootShift 1.8s ease-in-out infinite; }
+      [data-theme="dark"] .boot-line, [data-theme="dark"] .boot-panel, [data-theme="dark"] .boot-search { background-image: linear-gradient(90deg, #30362C 0%, #171A15 45%, #30362C 90%); }
+      .boot-line { display: block; height: 8px; border-radius: 2px; }
+      .boot-w-40 { width: 40px; }
+      .boot-w-56 { width: 56px; }
+      .boot-w-72 { width: 72px; }
+      .boot-w-96 { width: 96px; }
+      .boot-w-120 { width: 120px; }
+      .boot-w-160 { width: 160px; }
+      .boot-search { width: 120px; height: 38px; margin-left: auto; border-radius: 8px; }
+      .boot-strip { display: flex; align-items: center; gap: 22px; height: 30px; padding: 0 32px; border-bottom: 1px solid #D5D2C5; }
+      [data-theme="dark"] .boot-strip { border-color: #30362C; }
+      .boot-grid { display: grid; grid-template-columns: 248px minmax(0, 760px) 220px; justify-content: center; gap: 48px; width: 100%; max-width: 1440px; margin: 0 auto; padding: 40px 32px; }
+      .boot-rail { display: grid; align-content: start; gap: 13px; padding-top: 6px; }
+      .boot-main { display: grid; align-content: start; gap: 14px; }
+      .boot-kicker { width: 110px; height: 18px; border-radius: 2px; background: #B9E36A; animation: bootShift 1.8s ease-in-out infinite; }
+      .boot-title { display: block; width: 88%; height: 58px; border-radius: 3px; background: linear-gradient(90deg, #D5D2C5 0%, #FBFAF4 45%, #D5D2C5 90%); background-size: 240% 100%; animation: bootShift 1.8s ease-in-out infinite; }
+      [data-theme="dark"] .boot-title { background-image: linear-gradient(90deg, #30362C 0%, #171A15 45%, #30362C 90%); }
+      .boot-title.is-short { width: 58%; }
+      .boot-actions { display: flex; gap: 10px; margin-top: 8px; }
+      .boot-action { width: 150px; height: 46px; border-radius: 8px; background: #B9E36A; }
+      .boot-action.is-line { background: transparent; border: 1px solid #7A7E70; }
+      .boot-panel { display: block; width: 100%; height: 214px; margin-top: 16px; border: 1px solid #D5D2C5; border-radius: 12px; }
+      [data-theme="dark"] .boot-panel { border-color: #30362C; }
+      .boot-right { display: grid; align-content: start; gap: 13px; padding-top: 6px; }
+      @keyframes bootShift { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+      @media (max-width: 1080px) { .boot-grid { grid-template-columns: 220px minmax(0, 1fr); } .boot-right { display: none; } }
+      @media (max-width: 900px) { .boot-nav, .boot-rail { display: none; } .boot-grid { display: block; padding: 24px 20px; } .boot-main { max-width: 760px; margin: 0 auto; } }
+      @media (max-width: 680px) { .boot-strip { display: none; } .boot-head { padding: 0 14px; } .boot-search { width: 88px; } }
+      @media (prefers-reduced-motion: reduce) { .boot-line, .boot-panel, .boot-search, .boot-kicker, .boot-title { animation: none; } }
+    </style>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -69,7 +109,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-sheet" aria-hidden="true">
+        <div class="boot-head">
+          <span class="boot-logo"></span>
+          <span class="boot-line boot-w-120"></span>
+          <span class="boot-nav"><span class="boot-line boot-w-40"></span><span class="boot-line boot-w-40"></span><span class="boot-line boot-w-40"></span><span class="boot-line boot-w-56"></span></span>
+          <span class="boot-search"></span>
+        </div>
+        <div class="boot-strip"><span class="boot-line boot-w-72"></span><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-96"></span><span class="boot-line boot-w-72" style="margin-left:auto"></span></div>
+        <div class="boot-grid">
+          <aside class="boot-rail"><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-96"></span><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-40"></span><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-72"></span><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-96"></span></aside>
+          <main class="boot-main">
+            <span class="boot-kicker"></span>
+            <span class="boot-title"></span>
+            <span class="boot-title"></span>
+            <span class="boot-title is-short"></span>
+            <span class="boot-line boot-w-160" style="margin-top:12px"></span>
+            <span class="boot-line boot-w-120"></span>
+            <div class="boot-actions"><span class="boot-action"></span><span class="boot-action is-line"></span></div>
+            <span class="boot-panel"></span>
+          </main>
+          <aside class="boot-right"><span class="boot-line boot-w-96"></span><span class="boot-line boot-w-120"></span><span class="boot-line boot-w-72"></span><span class="boot-line boot-w-120"></span><span class="boot-panel"></span></aside>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

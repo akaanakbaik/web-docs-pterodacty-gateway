@@ -1,6 +1,6 @@
 # Pterodactyl Gateway Docs: Field Manual
 
-Reading this as: technical documentation for backend developers and panel operators, in a field-manual visual language, with dial ENERGY 2 / RHYTHM 3 / MOTION 1.
+Reading this as: technical documentation for backend developers and panel operators, in a field-manual visual language, with dial ENERGY 2 / RHYTHM 3 / MOTION 2.
 
 ## Product character
 
@@ -62,11 +62,18 @@ Documentation pages use a single article with numbered steps, a command runner, 
 - Pills appear only as functional status labels, never as decorative badges above headings.
 - Icons are functional and always paired with a text label or accessible name.
 - Code blocks use an ink surface in both themes and keep horizontal scrolling inside the block.
+- The component layer uses shadcn-style Radix primitives: Dialog for the palette, assistant, and mobile sheet; Tabs for command scenarios; Tooltip for icon controls; Progress for the simulation; Badge, Button, and Skeleton for feedback states.
+- A compact specification strip below the header states the SDK version, runtime, panel support, and license. It is real package metadata, not decoration.
+- A static boot skeleton in `index.html` paints the header, rails, and reading column before the React bundle arrives. The assistant uses the shadcn Skeleton for reply loading.
 - The AI assistant is a side panel on desktop and a full-height sheet on mobile. It opens from a labeled button.
 
 ## Motion
 
-MOTION 1: hover and focus states, a short route transition, and the command runner typing its own output. No floating objects, no endless pulses, no scroll-reveal on every element.
+MOTION 2: hover and focus states, a short route transition, and a deliberate command-runner simulation. The runner types the command with a slow, variable cadence, pauses while the CLI works, then reveals output line by line. It starts when the runner enters the viewport, can be replayed, skipped, and becomes instant under `prefers-reduced-motion`. No floating objects, no endless pulses, no scroll-reveal on every element.
+
+## Texture
+
+A fine paper grain sits under the canvas at low opacity so the bone surface reads as a manual rather than a flat digital panel. The grain is static and repeats from a small inline SVG, so it costs one paint and no network request. Rules, registration marks, and the numbered index remain the primary structure.
 
 ## Copy
 
@@ -81,6 +88,6 @@ Both themes meet WCAG AA for body text and 3:1 for interactive boundaries. Every
 - No grid or blueprint background. Structure comes from columns and rules.
 - No glassmorphism. The page stays solid so text keeps its contrast.
 - No radial orbs or glow. The accent is a fill, not a light source.
-- No fake terminal window. The command runner is a real CLI transcript for a real CLI.
+- No decorative terminal chrome. The command runner is a real CLI transcript for a real CLI, labeled as a simulation and never presented as a live panel response.
 - No decorative arrows. The one arrow in the primary CTA points to the next step in the manual.
 - No stock illustrations. The product has no suitable original image, so the layout uses typography and real package facts.
