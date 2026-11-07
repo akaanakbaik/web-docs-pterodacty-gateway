@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Toaster, toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, Play, RotateCcw, Search, ShieldCheck, SkipForward, Sun, Terminal, X } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, CircleAlert, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, Play, RotateCcw, Search, ShieldCheck, SkipForward, Sun, Terminal, X } from "lucide-react";
 import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -10,9 +11,10 @@ import { Progress } from "./components/ui/progress";
 import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import "sonner/dist/styles.css";
 import "./styles.css";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type ChatMessage = { role: "user" | "assistant"; content: string; kind?: "answer" | "error" };
 type RouteState = { path: string; doc: DocSection };
 type RichPart = { type: "text"; value: string } | { type: "code"; value: string; title: string };
 type Theme = "light" | "dark";
@@ -192,6 +194,7 @@ function App() {
       <Assistant activeDoc={route.doc} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNavigate={goTo} />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} activePath={route.path} onNavigate={goTo} onSearch={openPalette} onAssistant={() => { setMenuOpen(false); window.dispatchEvent(new Event("open-ai")); }} />
+      <Toaster theme={theme} position="top-right" offset={{ top: 76, right: 16 }} closeButton={false} toastOptions={{ className: "docs-toast", duration: 2400 }} />
     </div>
     </TooltipProvider>
   );
@@ -596,8 +599,10 @@ function CopyButton({ value, label }: { value: string; label: string }) {
     try {
       await navigator.clipboard.writeText(value);
       setState("ok");
+      toast.success("Disalin ke clipboard");
     } catch {
       setState("error");
+      toast.error("Clipboard diblokir. Pilih teks lalu salin manual.");
     }
     window.setTimeout(() => setState("idle"), 1600);
   }
@@ -758,7 +763,7 @@ async function readAiResponse(response: Response): Promise<{ answer?: string }> 
   try {
     return JSON.parse(raw) as { answer?: string };
   } catch {
-    return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "AI sedang tidak tersedia. Gunakan pencarian lokal atau buka halaman troubleshooting." };
+    return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "Asisten belum mendapat jawaban dari server. Coba lagi atau pakai pencarian lokal." };
   }
 }
 
@@ -780,6 +785,7 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const stored = window.sessionStorage.getItem(CHAT_KEY);
@@ -819,6 +825,15 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages, loading, open]);
 
+  useEffect(() => {
+    if (!loading) {
+      setElapsed(0);
+      return;
+    }
+    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [loading]);
+
   async function ask(customQuestion?: string) {
     const text = (customQuestion ?? question).trim();
     if (!text || loading) return;
@@ -837,7 +852,7 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
         signal: controller.signal
       });
       const data = await readAiResponse(response);
-      if (!response.ok) throw new Error(data.answer ?? "AI sedang tidak tersedia.");
+      if (!response.ok) throw new Error(data.answer ?? "Asisten belum mendapat jawaban. Coba lagi atau pakai pencarian lokal.");
       const answer = data.answer?.trim();
       if (!answer) throw new Error("AI belum mengembalikan jawaban. Coba lagi.");
       setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
@@ -845,10 +860,12 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
       setLastFailed(text);
       const message = error instanceof DOMException && error.name === "AbortError"
         ? "Waktu tunggu AI habis. Coba pertanyaan yang lebih singkat atau ulangi."
-        : error instanceof Error && error.message
-          ? error.message
-          : "AI sedang tidak tersedia. Gunakan pencarian lokal atau buka halaman troubleshooting.";
-      setMessages((prev) => [...prev, { role: "assistant", content: message }]);
+        : error instanceof TypeError
+          ? "Koneksi ke asisten gagal. Periksa jaringan, lalu coba lagi."
+          : error instanceof Error && error.message
+            ? error.message
+            : "Asisten belum mendapat jawaban. Coba lagi atau pakai pencarian lokal.";
+      setMessages((prev) => [...prev, { role: "assistant", content: message, kind: "error" }]);
     } finally {
       window.clearTimeout(timer);
       setLoading(false);
@@ -867,6 +884,8 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   }
 
   const suggestions = [`Ringkas ${activeDoc.title}`, "Dukungan Pterodactyl v2", "Kenapa DOCKER_IMAGE_NOT_FOUND?", "Cara aman hapus server"];
+  const lastMessage = messages[messages.length - 1];
+  const assistantState = loading ? "memproses" : lastMessage?.kind === "error" ? "gagal" : "siap";
 
   return <>
     <button type="button" className="assistant-launch" onClick={() => setOpen(true)} aria-haspopup="dialog">
@@ -878,20 +897,20 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
         <DialogTitle className="sr-only">Tanya dokumentasi</DialogTitle>
         <DialogDescription className="sr-only">Asisten menjawab berdasarkan halaman dokumentasi yang sedang dibuka.</DialogDescription>
         <header className="assistant-head">
-          <div><p className="assistant-kicker">Konteks halaman</p><h2 id="assistant-title">Tanya dokumentasi</h2><p className="assistant-context">{activeDoc.title}</p></div>
+          <div><p className="assistant-kicker">Konteks halaman</p><h2 id="assistant-title">Tanya dokumentasi</h2><div className="assistant-meta"><p className="assistant-context">{activeDoc.title}</p><Badge variant="outline" className="assistant-health" data-state={assistantState}>{assistantState}</Badge></div></div>
           <div className="assistant-head-actions">
             <button type="button" className="icon-button" title="Mulai chat baru" aria-label="Mulai chat baru" onClick={resetChat}><RotateCcw className="icon" aria-hidden="true" /></button>
             <button type="button" className="icon-button" title="Tutup asisten" aria-label="Tutup asisten dokumentasi" onClick={() => setOpen(false)}><X className="icon" aria-hidden="true" /></button>
           </div>
         </header>
         <div ref={listRef} className="assistant-messages" aria-live="polite" aria-busy={loading}>
-          {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`message ${message.role === "user" ? "message-user" : "message-assistant"}`}>
+          {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`message ${message.role === "user" ? "message-user" : "message-assistant"} ${message.kind === "error" ? "message-error" : ""}`}>
             <span className="message-label">{message.role === "user" ? "Anda" : "Asisten"}</span>
-            <RichMessage content={message.content} />
+            {message.kind === "error" ? <div className="message-error-body" role="alert"><CircleAlert className="icon" aria-hidden="true" /><RichMessage content={message.content} /></div> : <RichMessage content={message.content} />}
+            {message.kind === "error" && index === messages.length - 1 && lastFailed && !loading && <Button type="button" variant="secondary" size="sm" className="message-retry" onClick={() => void ask(lastFailed)}><RotateCcw className="icon" aria-hidden="true" /> Coba lagi pertanyaan terakhir</Button>}
           </div>)}
-          {loading && <div className="message message-assistant"><span className="message-label">Asisten</span><div className="thinking" role="status"><div className="thinking-skeleton" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></div><em>Menyusun jawaban</em></div></div>}
+          {loading && <div className="message message-assistant"><span className="message-label">Asisten</span><div className="thinking" role="status"><div className="thinking-skeleton" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></div><em aria-hidden="true">{elapsed >= 12 ? "Penyedia AI lambat, masih mencoba" : "Menyusun jawaban"}{elapsed >= 3 ? ` · ${elapsed} dtk` : ""}</em><span className="sr-only">Menyusun jawaban</span></div></div>}
         </div>
-        {lastFailed && !loading && <button type="button" className="retry-button" onClick={() => void ask(lastFailed)}>Ulangi pertanyaan</button>}
         {messages.length <= 1 && <div className="suggestion-list">{suggestions.map((item) => <button type="button" key={item} onClick={() => void ask(item)}>{item}</button>)}</div>}
         <form className="assistant-composer" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
           <label className="sr-only" htmlFor="assistant-input">Tulis pertanyaan</label>

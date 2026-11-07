@@ -7,13 +7,15 @@ app.use(express.json({ limit: "90kb" }));
 const MAX_QUESTION_LENGTH = 1500;
 const MAX_CONTEXT_LENGTH = 6000;
 const MAX_PROMPT_LENGTH = 3900;
-const MAX_SYSTEM_LENGTH = 1200;
-const PROVIDER_TIMEOUT_MS = 12000;
-const PROVIDER_ATTEMPTS = 2;
+const MAX_SYSTEM_LENGTH = 1700;
+const PROVIDER_TIMEOUT_MS = 10500;
+const PROVIDER_ATTEMPTS = 4;
+const PROVIDER_DEADLINE_MS = 26000;
+const MIN_ANSWER_LENGTH = 12;
 const TEMPERATURE = 0.7;
 const SIPUTZX_ENDPOINT = "https://api.siputzx.my.id/api/ai/gptoss120b";
 const PROVIDER_NAME = "siputzx-gpt-oss-120b";
-const FALLBACK_MESSAGE = "AI assistant sedang tidak tersedia sebentar. Kamu tetap bisa memakai search lokal, halaman install, SDK, dan troubleshooting di docs ini.";
+const FALLBACK_MESSAGE = "Asisten belum mendapat jawaban dari penyedia AI setelah beberapa percobaan. Coba lagi, atau pakai pencarian lokal dan halaman troubleshooting di docs ini.";
 
 type JsonObject = Record<string, unknown>;
 type ProviderAttempt = { attempt: number; status: number; ok: boolean };
@@ -47,6 +49,13 @@ function pickAnswer(payload: unknown) {
   return firstText(data.response, nested.response, data.answer, data.message, plainData, root.response, root.answer, root.result, root.message);
 }
 
+function isUsableAnswer(answer: string) {
+  const text = cleanText(answer);
+  if (text.length < MIN_ANSWER_LENGTH) return false;
+  const words = text.split(/\s+/).filter((word) => /[A-Za-z0-9]/.test(word));
+  return words.length >= 2 || text.length >= 24;
+}
+
 async function readPayload(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text.trim()) return {};
@@ -69,12 +78,12 @@ export function buildSiputzxSystem() {
   return cleanText(AI_SYSTEM_PROMPT).slice(0, MAX_SYSTEM_LENGTH);
 }
 
-async function callSiputzx(prompt: string, system: string, fetchImpl: FetchLike): Promise<ProviderResult> {
+async function callSiputzx(prompt: string, system: string, fetchImpl: FetchLike, timeoutMs = PROVIDER_TIMEOUT_MS): Promise<ProviderResult> {
   const params = new URLSearchParams({ prompt, system, temperature: String(TEMPERATURE) });
   const response = await fetchImpl(`${SIPUTZX_ENDPOINT}?${params.toString()}`, {
     method: "GET",
     headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS)
+    signal: AbortSignal.timeout(timeoutMs)
   });
   const payload = await readPayload(response);
   return { ok: response.ok, status: response.status, answer: pickAnswer(payload) };
@@ -84,11 +93,15 @@ export async function askWithSiputzx(question: string, context: string, fetchImp
   const prompt = buildSiputzxPrompt(question, context);
   const system = buildSiputzxSystem();
   const attempts: ProviderAttempt[] = [];
+  const startedAt = Date.now();
   for (let attempt = 1; attempt <= PROVIDER_ATTEMPTS; attempt += 1) {
+    const remaining = PROVIDER_DEADLINE_MS - (Date.now() - startedAt);
+    if (remaining < 1500) break;
     try {
-      const result = await callSiputzx(prompt, system, fetchImpl);
-      attempts.push({ attempt, status: result.status, ok: result.ok && Boolean(result.answer) });
-      if (result.ok && result.answer) return { ok: true, answer: result.answer, provider: PROVIDER_NAME, attempts };
+      const result = await callSiputzx(prompt, system, fetchImpl, Math.min(PROVIDER_TIMEOUT_MS, remaining));
+      const usable = result.ok && isUsableAnswer(result.answer);
+      attempts.push({ attempt, status: result.status, ok: usable });
+      if (usable) return { ok: true, answer: cleanText(result.answer), provider: PROVIDER_NAME, attempts };
     } catch {
       attempts.push({ attempt, status: 0, ok: false });
     }
@@ -111,6 +124,10 @@ export const __testing = {
   PROVIDER_NAME,
   MAX_CONTEXT_LENGTH,
   MAX_PROMPT_LENGTH,
+  PROVIDER_ATTEMPTS,
+  PROVIDER_DEADLINE_MS,
+  MIN_ANSWER_LENGTH,
+  isUsableAnswer,
   buildSiputzxPrompt,
   buildSiputzxSystem,
   pickAnswer,
@@ -129,7 +146,7 @@ app.post("/api/ai", async (req, res) => {
     return;
   }
   const result = await askWithSiputzx(request.question, request.context);
-  res.status(result.ok ? 200 : 503).json({ ok: result.ok, answer: result.answer, provider: result.provider, attempts: result.attempts });
+  res.status(result.ok ? 200 : 503).json({ ok: result.ok, answer: result.answer, provider: result.provider, retryable: !result.ok, attempts: result.attempts });
 });
 
 export default app;

@@ -14,6 +14,7 @@
   --signal-ink: #141612;
   --signal-line: #2f5a12;
   --focus: #2f5a12;
+  --danger: #9b3524;
   --code-bg: #141612;
   --code-text: #f1f4e8;
   --code-muted: #a9b0a3;
@@ -43,6 +44,7 @@
   --signal-ink: #111310;
   --signal-line: #c8f27a;
   --focus: #c8f27a;
+  --danger: #ffab96;
   --code-bg: #0b0d0a;
   --code-text: #eef1e6;
   --code-muted: #a9b0a3;
@@ -2110,11 +2112,38 @@ kbd {
   line-height: 1.1;
 }
 
+.assistant-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .assistant-context {
+  min-width: 0;
   margin: 3px 0 0;
+  overflow: hidden;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-health {
+  min-height: 18px;
+  margin-top: 3px;
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.assistant-health[data-state="gagal"] {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .assistant-head-actions {
@@ -2172,6 +2201,59 @@ kbd {
 
 .message-user .message-label {
   color: var(--canvas);
+}
+
+.message-error {
+  border-color: var(--danger);
+  background: var(--surface);
+}
+
+.message-error .message-label {
+  color: var(--danger);
+}
+
+.message-error-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.message-error-body .icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+.message-error-body .message-rich {
+  min-width: 0;
+}
+
+.message-retry {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.docs-toast {
+  width: max-content !important;
+  max-width: min(340px, calc(100vw - 24px)) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--radius-control) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  font-family: var(--font-body) !important;
+  box-shadow: var(--shadow-overlay) !important;
+}
+
+.docs-toast [data-title] {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.docs-toast [data-icon] {
+  color: var(--signal-line);
 }
 
 .message-rich {
@@ -2263,22 +2345,6 @@ kbd {
   color: var(--muted);
   font-size: 10px;
   font-style: normal;
-}
-
-.retry-button {
-  align-self: flex-start;
-  min-height: 44px;
-  margin: 0 12px 8px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  color: var(--ink);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.retry-button:hover {
-  border-color: var(--ink);
 }
 
 .suggestion-list {

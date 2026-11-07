@@ -50,11 +50,32 @@ test("network errors are retried and then reported as a safe fallback", async ()
     calls += 1;
     throw new Error("timeout");
   });
-  assert.equal(calls, 2);
+  assert.equal(calls, __testing.PROVIDER_ATTEMPTS);
   assert.equal(result.ok, false);
   assert.equal(result.provider, null);
-  assert.match(result.answer, /AI assistant sedang tidak tersedia/);
-  assert.deepEqual(result.attempts.map((item) => item.status), [0, 0]);
+  assert.match(result.answer, /belum mendapat jawaban/);
+  assert.deepEqual(result.attempts.map((item) => item.status), [0, 0, 0, 0]);
+});
+
+test("empty and truncated answers are rejected and retried", async () => {
+  const calls = [];
+  const answers = ["", "**Safe", "Jawaban yang cukup lengkap untuk dipakai."];
+  const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async () => {
+    const answer = answers[calls.length];
+    calls.push(answer);
+    return jsonResponse({ status: true, data: { response: answer } });
+  });
+  assert.equal(calls.length, 3);
+  assert.equal(result.ok, true);
+  assert.equal(result.answer, "Jawaban yang cukup lengkap untuk dipakai.");
+  assert.deepEqual(result.attempts.map((item) => item.ok), [false, false, true]);
+});
+
+test("answer validation rejects markup-only and very short replies", () => {
+  assert.equal(__testing.isUsableAnswer("**Safe"), false);
+  assert.equal(__testing.isUsableAnswer("**"), false);
+  assert.equal(__testing.isUsableAnswer("Jawaban valid"), true);
+  assert.equal(__testing.isUsableAnswer("Jawaban yang cukup panjang dan jelas."), true);
 });
 
 test("HTTP 200 error text does not count as an answer", async () => {
@@ -73,7 +94,7 @@ test("status false is treated as a failed answer even with HTTP 200", async () =
   const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async () => jsonResponse({ status: false, data: { response: "upstream error" } }, 200));
   assert.equal(result.ok, false);
   assert.equal(result.provider, null);
-  assert.match(result.answer, /AI assistant sedang tidak tersedia/);
+  assert.match(result.answer, /belum mendapat jawaban/);
 });
 
 test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
@@ -82,6 +103,9 @@ test("system prompt mengunci nama package dan perintah instalasi resmi", () => {
   assert.match(system, /npm i @akaanakbaik\/pterodactyl-gateway/);
   assert.match(system, /1\.6\.0/);
   assert.match(system, /Node\.js 18/);
+  assert.match(system, /Pterodactyl v1 dan v2 open beta/);
+  assert.match(system, /Jangan memakai tabel markdown/);
+  assert.match(system, /proses berpikir/);
 });
 
 test("oversized context and questions keep the prompt below the provider limit", () => {
@@ -92,7 +116,7 @@ test("oversized context and questions keep the prompt below the provider limit",
   const system = __testing.buildSiputzxSystem();
   assert.ok(prompt.length <= 3900);
   assert.ok(prompt.length < 4000);
-  assert.ok(system.length <= 1200);
+  assert.ok(system.length <= 1700);
   assert.match(prompt, /Pertanyaan user:/);
   assert.match(system, /Akadev Pterodactyl Gateway Docs Assistant/);
 });
