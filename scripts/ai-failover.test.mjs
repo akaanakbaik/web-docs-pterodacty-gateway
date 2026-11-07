@@ -57,18 +57,26 @@ test("network errors are retried and then reported as a safe fallback", async ()
   assert.deepEqual(result.attempts.map((item) => item.status), [0, 0, 0, 0]);
 });
 
-test("empty and truncated answers are rejected and retried", async () => {
+test("empty, truncated, and reasoning answers are rejected and retried", async () => {
   const calls = [];
-  const answers = ["", "**Safe", "Jawaban yang cukup lengkap untuk dipakai."];
+  const answers = ["", "**Safe", "analysis: we need answer in English but the user wants Indonesian.", "Jawaban yang cukup lengkap untuk dipakai."];
   const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async () => {
     const answer = answers[calls.length];
     calls.push(answer);
     return jsonResponse({ status: true, data: { response: answer } });
   });
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.equal(result.ok, true);
   assert.equal(result.answer, "Jawaban yang cukup lengkap untuk dipakai.");
-  assert.deepEqual(result.attempts.map((item) => item.ok), [false, false, true]);
+  assert.deepEqual(result.attempts.map((item) => item.ok), [false, false, false, true]);
+});
+
+test("reasoning leaks and internal tokens are cleaned or rejected", () => {
+  assert.equal(__testing.sanitizeAnswer("<|end|><|start|>assistantfinal: **Jawaban bersih**"), "**Jawaban bersih**");
+  assert.match(__testing.sanitizeAnswer("analysis: internal notes\nfinal: Jawaban final yang cukup."), /^Jawaban final/);
+  assert.equal(__testing.isUsableAnswer("analysis: we need answer in English"), false);
+  assert.equal(__testing.isUsableAnswer("...assistantanalysis: we need final answer"), false);
+  assert.equal(__testing.isUsableAnswer(__testing.sanitizeAnswer("analysis: notes only, no final answer")), false);
 });
 
 test("answer validation rejects markup-only and very short replies", () => {

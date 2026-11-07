@@ -49,9 +49,17 @@ function pickAnswer(payload: unknown) {
   return firstText(data.response, nested.response, data.answer, data.message, plainData, root.response, root.answer, root.result, root.message);
 }
 
+export function sanitizeAnswer(value: string) {
+  let text = cleanText(value).replace(/<\|[^|]*\|>/g, "");
+  const final = text.match(/(?:assistant\s*)?final\s*:\s*([\s\S]+)$/i);
+  if (final) text = final[1];
+  return cleanText(text).replace(/^(?:assistant\s*)?final\s*:\s*/i, "").trim();
+}
+
 function isUsableAnswer(answer: string) {
-  const text = cleanText(answer);
+  const text = sanitizeAnswer(answer);
   if (text.length < MIN_ANSWER_LENGTH) return false;
+  if (/^[\s.]*(?:assistant\s*)?(analysis|reasoning|thinking|thought process)\b/i.test(text)) return false;
   const words = text.split(/\s+/).filter((word) => /[A-Za-z0-9]/.test(word));
   return words.length >= 2 || text.length >= 24;
 }
@@ -99,9 +107,10 @@ export async function askWithSiputzx(question: string, context: string, fetchImp
     if (remaining < 1500) break;
     try {
       const result = await callSiputzx(prompt, system, fetchImpl, Math.min(PROVIDER_TIMEOUT_MS, remaining));
-      const usable = result.ok && isUsableAnswer(result.answer);
+      const answer = sanitizeAnswer(result.answer);
+      const usable = result.ok && isUsableAnswer(answer);
       attempts.push({ attempt, status: result.status, ok: usable });
-      if (usable) return { ok: true, answer: cleanText(result.answer), provider: PROVIDER_NAME, attempts };
+      if (usable) return { ok: true, answer, provider: PROVIDER_NAME, attempts };
     } catch {
       attempts.push({ attempt, status: 0, ok: false });
     }
@@ -127,6 +136,7 @@ export const __testing = {
   PROVIDER_ATTEMPTS,
   PROVIDER_DEADLINE_MS,
   MIN_ANSWER_LENGTH,
+  sanitizeAnswer,
   isUsableAnswer,
   buildSiputzxPrompt,
   buildSiputzxSystem,
