@@ -86,6 +86,13 @@ test("answer validation rejects markup-only and very short replies", () => {
   assert.equal(__testing.isUsableAnswer("Jawaban yang cukup panjang dan jelas."), true);
 });
 
+test("corrupted, repetitive, and wrong-package answers are rejected", () => {
+  const corrupt = "```bash @aac AAC AAC AAC AAC AAC AAC AAC AAC AAC?``` Oops! I mistakenly said that. assistantfinal: npm install @akanakbaik/pterodactyl-gateway";
+  assert.equal(__testing.isUsableAnswer(__testing.sanitizeAnswer(corrupt)), false);
+  assert.equal(__testing.sanitizeAnswer("Jawaban yang cukup jelas.\n```js\nconst x = 1;"), "Jawaban yang cukup jelas.");
+  assert.equal(__testing.isUsableAnswer("Install dengan npm i @akaanakbaik/pterodactyl-gateway lalu verifikasi."), true);
+});
+
 test("HTTP 200 error text does not count as an answer", async () => {
   const calls = [];
   const result = await __testing.askWithSiputzx("Pertanyaan", "Context", async (url) => {

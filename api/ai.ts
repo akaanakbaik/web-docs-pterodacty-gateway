@@ -53,13 +53,19 @@ export function sanitizeAnswer(value: string) {
   let text = cleanText(value).replace(/<\|[^|]*\|>/g, "");
   const final = text.match(/(?:assistant\s*)?final\s*:\s*([\s\S]+)$/i);
   if (final) text = final[1];
-  return cleanText(text).replace(/^(?:assistant\s*)?final\s*:\s*/i, "").trim();
+  text = cleanText(text).replace(/^(?:assistant\s*)?final\s*:\s*/i, "").trim();
+  if ((text.match(/```/g) ?? []).length % 2 === 1) text = text.slice(0, text.lastIndexOf("```")).trim();
+  return text;
 }
 
 function isUsableAnswer(answer: string) {
   const text = sanitizeAnswer(answer);
   if (text.length < MIN_ANSWER_LENGTH) return false;
   if (/^[\s.]*(?:assistant\s*)?(analysis|reasoning|thinking|thought process)\b/i.test(text)) return false;
+  if (/\b(oops|i mistakenly|let'?s craft|need to produce|final answer properly|assistant(?:final|analysis))\b/i.test(text)) return false;
+  if (/(\b[\w@]+\b)(?:\s+\1){4,}/i.test(text)) return false;
+  const scopes = [...text.matchAll(/@([a-z0-9_-]+)\/pterodactyl-gateway/gi)].map((match) => match[1].toLowerCase());
+  if (scopes.some((scope) => scope !== "akaanakbaik")) return false;
   const words = text.split(/\s+/).filter((word) => /[A-Za-z0-9]/.test(word));
   return words.length >= 2 || text.length >= 24;
 }
