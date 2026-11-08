@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["api/**/*.ts", "src/data/aiPrompt.ts"]
+  "include": ["api/**/*.ts", "src/data/aiPrompt.ts", "src/data/docs.ts"]
 }

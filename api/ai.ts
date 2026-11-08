@@ -1,5 +1,6 @@
 import express from "express";
 import { AI_SYSTEM_PROMPT } from "../src/data/aiPrompt.js";
+import { DOCS_URL, docs } from "../src/data/docs.js";
 
 const app = express();
 app.use(express.json({ limit: "90kb" }));
@@ -8,9 +9,9 @@ const MAX_QUESTION_LENGTH = 1500;
 const MAX_CONTEXT_LENGTH = 6000;
 const MAX_PROMPT_LENGTH = 3900;
 const MAX_SYSTEM_LENGTH = 1700;
-const PROVIDER_TIMEOUT_MS = 10500;
-const PROVIDER_ATTEMPTS = 4;
-const PROVIDER_DEADLINE_MS = 26000;
+const PROVIDER_TIMEOUT_MS = 10000;
+const PROVIDER_ATTEMPTS = 3;
+const PROVIDER_DEADLINE_MS = 20000;
 const MIN_ANSWER_LENGTH = 12;
 const TEMPERATURE = 0.7;
 const SIPUTZX_ENDPOINT = "https://api.siputzx.my.id/api/ai/gptoss120b";
@@ -54,8 +55,39 @@ export function sanitizeAnswer(value: string) {
   const final = text.match(/(?:assistant\s*)?final\s*:\s*([\s\S]+)$/i);
   if (final) text = final[1];
   text = cleanText(text).replace(/^(?:assistant\s*)?final\s*:\s*/i, "").trim();
-  if ((text.match(/```/g) ?? []).length % 2 === 1) text = text.slice(0, text.lastIndexOf("```")).trim();
+  if ((text.match(/```/g) ?? []).length % 2 === 1) text = `${text}\n\`\`\``;
   return text;
+}
+
+const STOPWORDS = new Set(["apa", "apakah", "itu", "ini", "dan", "yang", "untuk", "dengan", "dari", "pada", "atau", "akan", "tidak", "sudah", "belum", "saya", "bisa", "cara", "bagaimana", "kenapa", "mengapa", "adalah", "juga", "agar", "dalam", "ke", "di", "the", "dan"]);
+
+function fallbackTerms(question: string) {
+  return [...new Set(question.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).flatMap((word) => {
+    if (word.length < 3 || STOPWORDS.has(word)) return [];
+    const stem = word.replace(/^(meng|meny|mem|men|di|ter)/, "");
+    return stem.length >= 3 && stem !== word ? [word, stem] : [word];
+  }))];
+}
+
+function buildDocsFallback(question: string) {
+  const terms = fallbackTerms(question);
+  let best = docs[0];
+  let bestScore = 0;
+  for (const doc of docs) {
+    const title = doc.title.toLowerCase();
+    const tags = doc.tags.join(" ").toLowerCase();
+    const text = `${doc.summary} ${doc.beginner} ${doc.body.join(" ")} ${doc.steps.map((step) => `${step.title} ${step.detail} ${step.command ?? ""}`).join(" ")}`.toLowerCase();
+    const score = terms.reduce((sum, term) => sum + (title.includes(term) ? 5 : 0) + (tags.includes(term) ? 3 : 0) + (text.includes(term) ? 1 : 0), 0);
+    if (score > bestScore) {
+      best = doc;
+      bestScore = score;
+    }
+  }
+  if (bestScore < 2) {
+    return `${FALLBACK_MESSAGE}\n\nHalaman yang bisa dibuka:\n${docs.slice(0, 3).map((doc) => `- ${doc.title}: ${DOCS_URL}${doc.path}`).join("\n")}`;
+  }
+  const steps = best.steps.slice(0, 3).map((step, index) => `${index + 1}. ${step.title}: ${step.detail}${step.command ? ` Command: \`${step.command.split("\n")[0]}\`` : ""}`).join("\n");
+  return `Jawaban dari dokumentasi resmi:\n\n${best.beginner}\n\n${best.body.slice(0, 2).join("\n\n")}\n\n${steps}\n\nBaca lengkap: ${DOCS_URL}${best.path}`;
 }
 
 function isUsableAnswer(answer: string) {
@@ -63,9 +95,12 @@ function isUsableAnswer(answer: string) {
   if (text.length < MIN_ANSWER_LENGTH) return false;
   if (/^[\s.]*(?:assistant\s*)?(analysis|reasoning|thinking|thought process)\b/i.test(text)) return false;
   if (/\b(oops|i mistakenly|let'?s craft|need to produce|final answer properly|assistant(?:final|analysis))\b/i.test(text)) return false;
-  if (/(\b[\w@]+\b)(?:\s+\1){4,}/i.test(text)) return false;
+  if (/\b(saya akan mencari|mencari informasi|i will search|let me (?:search|check)|berikut adalah informasi)\b/i.test(text)) return false;
+  if (/(\b[\w@]+\b)(?:\s+\1){3,}/i.test(text)) return false;
+  if (/```[a-z]*\s*```/i.test(text)) return false;
   const scopes = [...text.matchAll(/@([a-z0-9_-]+)\/pterodactyl-gateway/gi)].map((match) => match[1].toLowerCase());
   if (scopes.some((scope) => scope !== "akaanakbaik")) return false;
+  if (!/[.!?`)\]}]$/.test(text)) return false;
   const words = text.split(/\s+/).filter((word) => /[A-Za-z0-9]/.test(word));
   return words.length >= 2 || text.length >= 24;
 }
@@ -121,7 +156,7 @@ export async function askWithSiputzx(question: string, context: string, fetchImp
       attempts.push({ attempt, status: 0, ok: false });
     }
   }
-  return { ok: false, answer: FALLBACK_MESSAGE, provider: null, attempts };
+  return { ok: true, answer: buildDocsFallback(question), provider: "local-docs", fallback: true, attempts };
 }
 
 function normalizeRequest(body: unknown) {
@@ -144,6 +179,7 @@ export const __testing = {
   MIN_ANSWER_LENGTH,
   sanitizeAnswer,
   isUsableAnswer,
+  buildDocsFallback,
   buildSiputzxPrompt,
   buildSiputzxSystem,
   pickAnswer,
@@ -162,7 +198,7 @@ app.post("/api/ai", async (req, res) => {
     return;
   }
   const result = await askWithSiputzx(request.question, request.context);
-  res.status(result.ok ? 200 : 503).json({ ok: result.ok, answer: result.answer, provider: result.provider, retryable: !result.ok, attempts: result.attempts });
+  res.status(result.ok ? 200 : 503).json({ ok: result.ok, answer: result.answer, provider: result.provider, fallback: result.fallback ?? false, retryable: !result.ok, attempts: result.attempts });
 });
 
 export default app;
