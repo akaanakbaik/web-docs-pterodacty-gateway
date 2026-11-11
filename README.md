@@ -72,7 +72,7 @@ Materi situs mengikuti perubahan utama pada SDK utama:
 
 ## Stack
 
-Project ini menggunakan Vite, React 18, TypeScript ESM, Tailwind CSS 3, Express serverless route, Framer Motion, dan Lucide Icons. Hosting Vercel tetap didukung melalui `vercel.json`, sedangkan workflow CI berjalan pada Node.js 18, 20, dan 22.
+Project ini menggunakan Vite 8, React 19, TypeScript ESM, Tailwind CSS 3, Express 5 serverless route, Framer Motion 14, dan Lucide Icons 1.x. Hosting Vercel tetap didukung melalui `vercel.json`, sedangkan build membutuhkan Node.js `^20.19.0 || >=22.12.0`.
 
 ## Instalasi Lokal
 
@@ -100,13 +100,13 @@ Atau jalankan semuanya sekaligus:
 npm run ci
 ```
 
-`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta delapan test provider dan API contract dengan mock fetch. Test mencakup URL, parameter prompt/system/temperature, retry, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
+`npm run check` menjalankan root TypeScript project references, typecheck `api/ai.ts`, source guard, serta enam belas test provider dan API contract dengan mock fetch. Test mencakup URL, parameter prompt/system/temperature, retry, timeout/throw, response malformed, status false, prompt forwarding, context compaction, validasi pertanyaan, dan fallback lokal. Source guard memindai file code yang ter-track dan menolak code comment serta pola PTLA, PTLC, GitHub token, atau credential sejenis. Contoh credential pada materi docs menggunakan placeholder yang pendek atau bentuk yang tidak menyerupai token nyata.
 
 `npm run build` menghasilkan bundle production pada `dist`. `npm run test:site` memeriksa marker metadata yang harus ada pada `dist/index.html` dan menolak marker versi lama. Smoke test tidak memanggil provider AI dan dapat berjalan deterministik di CI.
 
 ## GitHub Actions
 
-`Documentation CI` berjalan pada push ke `main`, pull request menuju `main`, dan manual dispatch. Workflow memakai concurrency cancellation, timeout, npm lockfile cache, permission read-only, matrix Node.js 18/20/22, quality gate, production build, dan artifact retention tujuh hari.
+`Documentation CI` berjalan pada push ke `main`, pull request menuju `main`, dan manual dispatch. Workflow memakai concurrency cancellation, timeout, npm lockfile cache, permission read-only, Node.js minimal 20.19, quality gate, production build, dan artifact retention tujuh hari.
 
 `Documentation Release Check` berjalan pada pull request, tag `v*` atau `docs-v*`, dan manual dispatch. Workflow memakai quality gate yang sama serta artifact release candidate dengan retention empat belas hari.
 

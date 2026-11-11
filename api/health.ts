@@ -1,5 +1,9 @@
-type ResponseLike = { status: (code: number) => ResponseLike; json: (body: unknown) => void };
+import express from "express";
 
-export default function handler(_req: unknown, res: ResponseLike) {
-  res.status(200).json({ ok: true, service: "pterodactyl-gateway-docs", aiProvider: "siputzx-gpt-oss-120b", model: "gpt-oss-120b" });
-}
+const app = express();
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "pterodactyl-gateway-docs", aiProvider: "siputzx-gpt-oss-120b", model: "gpt-oss-120b" });
+});
+
+export default app;
