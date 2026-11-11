@@ -16,7 +16,7 @@ const MIN_ANSWER_LENGTH = 12;
 const TEMPERATURE = 0.7;
 const SIPUTZX_ENDPOINT = "https://api.siputzx.my.id/api/ai/gptoss120b";
 const PROVIDER_NAME = "siputzx-gpt-oss-120b";
-const FALLBACK_MESSAGE = "Asisten belum mendapat jawaban dari penyedia AI setelah beberapa percobaan. Coba lagi, atau pakai pencarian lokal dan halaman troubleshooting di docs ini.";
+const FALLBACK_MESSAGE = "Penyedia AI sedang tidak tersedia. Berikut ringkasan dari dokumentasi lokal yang paling relevan. Coba lagi nanti, atau gunakan pencarian lokal.";
 
 type JsonObject = Record<string, unknown>;
 type ProviderAttempt = { attempt: number; status: number; ok: boolean };
@@ -63,7 +63,8 @@ const STOPWORDS = new Set(["apa", "apakah", "itu", "ini", "dan", "yang", "untuk"
 
 function fallbackTerms(question: string) {
   return [...new Set(question.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).flatMap((word) => {
-    if (word.length < 3 || STOPWORDS.has(word)) return [];
+    if (word.length < 3 && !/\d/.test(word)) return [];
+    if (STOPWORDS.has(word)) return [];
     const stem = word.replace(/^(meng|meny|mem|men|di|ter)/, "");
     return stem.length >= 3 && stem !== word ? [word, stem] : [word];
   }))];
