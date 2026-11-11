@@ -90,13 +90,19 @@ function buildDocsFallback(question: string) {
   return `Jawaban dari dokumentasi resmi:\n\n${best.beginner}\n\n${best.body.slice(0, 2).join("\n\n")}\n\n${steps}\n\nBaca lengkap: ${DOCS_URL}${best.path}`;
 }
 
+const SEARCH_ONLY_PATTERN = /^\s*(?:search|look up|find|read|open|visit|check)\b[^.\n]{0,120}\b(?:documentation|docs|guide|manual)\b/i;
+
+function isSearchOnlyAnswer(answer: string) {
+  return SEARCH_ONLY_PATTERN.test(sanitizeAnswer(answer));
+}
+
 function isUsableAnswer(answer: string) {
   const text = sanitizeAnswer(answer);
   if (text.length < MIN_ANSWER_LENGTH) return false;
   if (/^[\s.]*(?:assistant\s*)?(analysis|reasoning|thinking|thought process)\b/i.test(text)) return false;
   if (/\b(oops|i mistakenly|let'?s craft|need to produce|final answer properly|assistant(?:final|analysis))\b/i.test(text)) return false;
   if (/\b(saya akan mencari|mencari informasi|i will search|let me (?:search|check)|berikut adalah informasi)\b/i.test(text)) return false;
-  if (/^\s*(?:search|look up|find|read|open|visit|check)\b[^.\n]{0,120}\b(?:documentation|docs|guide|manual)\b/i.test(text)) return false;
+  if (SEARCH_ONLY_PATTERN.test(text)) return false;
   if (/(\b[\w@]+\b)(?:\s+\1){3,}/i.test(text)) return false;
   if (/```[a-z]*\s*```/i.test(text)) return false;
   const scopes = [...text.matchAll(/@([a-z0-9_-]+)\/pterodactyl-gateway/gi)].map((match) => match[1].toLowerCase());
@@ -153,6 +159,7 @@ export async function askWithSiputzx(question: string, context: string, fetchImp
       const usable = result.ok && isUsableAnswer(answer);
       attempts.push({ attempt, status: result.status, ok: usable });
       if (usable) return { ok: true, answer, provider: PROVIDER_NAME, attempts };
+      if (result.ok && isSearchOnlyAnswer(answer)) break;
     } catch {
       attempts.push({ attempt, status: 0, ok: false });
     }
@@ -179,6 +186,7 @@ export const __testing = {
   PROVIDER_DEADLINE_MS,
   MIN_ANSWER_LENGTH,
   sanitizeAnswer,
+  isSearchOnlyAnswer,
   isUsableAnswer,
   buildDocsFallback,
   buildSiputzxPrompt,

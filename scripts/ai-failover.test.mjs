@@ -130,11 +130,17 @@ test("HTTP 200 error text does not count as an answer", async () => {
   assert.equal(calls.length, 2);
 });
 
-test("search-only English reply falls back to a relevant documentation answer", async () => {
-  const result = await __testing.askWithSiputzx("Bagaimana cara install Pterodactyl Gateway?", "Docs install", async () => jsonResponse({ status: true, data: { response: "Search for Pterodactyl Gateway installation documentation." } }));
+test("search-only English reply falls back immediately without retrying", async () => {
+  let calls = 0;
+  const result = await __testing.askWithSiputzx("Bagaimana cara install Pterodactyl Gateway?", "Docs install", async () => {
+    calls += 1;
+    return jsonResponse({ status: true, data: { response: "Search for Pterodactyl Gateway installation documentation." } });
+  });
+  assert.equal(calls, 1);
   assert.equal(result.ok, true);
   assert.equal(result.provider, "local-docs");
   assert.equal(result.fallback, true);
+  assert.equal(result.attempts.length, 1);
   assert.match(result.answer, /install|dokumentasi resmi/i);
   assert.ok(result.answer.includes("Baca lengkap: https://pterodacty-gateway.akaa.dev/docs/"));
 });
