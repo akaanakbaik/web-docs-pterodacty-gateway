@@ -96,6 +96,7 @@ function isUsableAnswer(answer: string) {
   if (/^[\s.]*(?:assistant\s*)?(analysis|reasoning|thinking|thought process)\b/i.test(text)) return false;
   if (/\b(oops|i mistakenly|let'?s craft|need to produce|final answer properly|assistant(?:final|analysis))\b/i.test(text)) return false;
   if (/\b(saya akan mencari|mencari informasi|i will search|let me (?:search|check)|berikut adalah informasi)\b/i.test(text)) return false;
+  if (/^\s*(?:search|look up|find|read|open|visit|check)\b[^.\n]{0,120}\b(?:documentation|docs|guide|manual)\b/i.test(text)) return false;
   if (/(\b[\w@]+\b)(?:\s+\1){3,}/i.test(text)) return false;
   if (/```[a-z]*\s*```/i.test(text)) return false;
   const scopes = [...text.matchAll(/@([a-z0-9_-]+)\/pterodactyl-gateway/gi)].map((match) => match[1].toLowerCase());

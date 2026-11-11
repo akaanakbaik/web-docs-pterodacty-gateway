@@ -104,6 +104,7 @@ test("corrupted, repetitive, and wrong-package answers are rejected", () => {
   assert.equal(__testing.isUsableAnswer(__testing.sanitizeAnswer(corrupt)), false);
   assert.equal(__testing.sanitizeAnswer("Jawaban yang cukup jelas.\n```js\nconst x = 1;"), "Jawaban yang cukup jelas.\n```js\nconst x = 1;\n```");
   assert.equal(__testing.isUsableAnswer("Saya akan mencari informasi tentang dry-run."), false);
+  assert.equal(__testing.isUsableAnswer("Search for Pterodactyl Gateway installation documentation."), false);
   assert.equal(__testing.isUsableAnswer("sp sp sp sp sp sp sp sp sp sp"), false);
   assert.equal(__testing.isUsableAnswer("Install dengan npm i @akaanakbaik/pterodactyl-gateway lalu verifikasi."), true);
 });
@@ -118,6 +119,15 @@ test("HTTP 200 error text does not count as an answer", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.answer, "Jawaban valid.");
   assert.equal(calls.length, 2);
+});
+
+test("search-only English reply falls back to a relevant documentation answer", async () => {
+  const result = await __testing.askWithSiputzx("Bagaimana cara install Pterodactyl Gateway?", "Docs install", async () => jsonResponse({ status: true, data: { response: "Search for Pterodactyl Gateway installation documentation." } }));
+  assert.equal(result.ok, true);
+  assert.equal(result.provider, "local-docs");
+  assert.equal(result.fallback, true);
+  assert.match(result.answer, /install|dokumentasi resmi/i);
+  assert.ok(result.answer.includes("Baca lengkap: https://pterodacty-gateway.akaa.dev/docs/"));
 });
 
 test("status false is treated as a failed answer even with HTTP 200", async () => {
