@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster, toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, CircleAlert, Command, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, Play, RotateCcw, Search, ShieldCheck, SkipForward, Sun, Terminal, X } from "lucide-react";
-import { NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
+import { BookOpen, Check, ChevronLeft, ChevronRight, CircleAlert, Copy, ExternalLink, Github, Menu, MessageSquare, Moon, Package, Play, RotateCcw, Search, ShieldCheck, SkipForward, Sun, Terminal, X } from "lucide-react";
+import { DOCS_URL, NPM_PACKAGE_URL, PACKAGE_NAME, SDK_REPOSITORY_URL, SDK_VERSION, docs, docsByPath, knowledgeBase, navGroups, type DocSection, type SimulationStep } from "./data/docs";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog";
@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./comp
 import "sonner/dist/styles.css";
 import "./styles.css";
 
-type ChatMessage = { role: "user" | "assistant"; content: string; kind?: "answer" | "error" };
+type ChatMessage = { role: "user" | "assistant"; content: string; kind?: "answer" | "error"; source?: "ai" | "docs" };
 type RouteState = { path: string; doc: DocSection };
 type RichPart = { type: "text"; value: string } | { type: "code"; value: string; title: string };
 type Theme = "light" | "dark";
@@ -109,10 +109,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.title = `${route.doc.title} · Pterodactyl Gateway Docs`;
+    const title = `${route.doc.title} · Pterodactyl Gateway Docs`;
+    const description = `${route.doc.summary} Dokumentasi resmi ${PACKAGE_NAME} v${SDK_VERSION}.`;
+    const canonical = `${DOCS_URL}${window.location.pathname === "/" ? "/" : route.path}`;
+    document.title = title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonical);
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", description);
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", canonical);
     setScrollProgress(0);
     window.scrollTo(0, 0);
-  }, [route.path, route.doc.title]);
+  }, [route.path, route.doc.title, route.doc.summary]);
 
   useEffect(() => {
     const update = () => {
@@ -387,7 +397,7 @@ function DocRail({ doc }: { doc: DocSection }) {
   return <div className="doc-rail-content">
     <nav className="toc" aria-label="Di halaman ini">
       <p className="toc-title">Di halaman ini</p>
-      {items.map((item, index) => <a key={item.id} href={`#${item.id}`} className={activeId === item.id ? "is-active" : undefined}><span>{String(index + 1).padStart(2, "0")}</span>{item.label}</a>)}
+      {items.map((item, index) => <a key={item.id} href={`#${item.id}`} className={activeId === item.id ? "is-active" : undefined} aria-current={activeId === item.id ? "location" : undefined}><span>{String(index + 1).padStart(2, "0")}</span>{item.label}</a>)}
     </nav>
     {doc.id !== "overview" && <div className="release-card">
       <p className="release-label">Rilis</p>
@@ -620,10 +630,13 @@ function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
 function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (path: string) => void }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const results = useMemo(() => docs.map((doc) => ({ doc, score: scoreDoc(doc, query) })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score).map((entry) => entry.doc).slice(0, 10), [query]);
+  const activeOptionId = results[active] ? `palette-option-${active}` : undefined;
 
   useEffect(() => {
     if (open) {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setQuery("");
       setActive(0);
     }
@@ -639,13 +652,13 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
   }
 
   return <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-    <DialogContent className="palette-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => document.getElementById("palette-input")?.focus(), 30); }}>
+    <DialogContent className="palette-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => document.getElementById("palette-input")?.focus(), 30); }} onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus.current && returnFocus.current !== document.body && document.contains(returnFocus.current) ? returnFocus.current : document.querySelector<HTMLElement>(".search-trigger"); target?.focus(); returnFocus.current = null; }}>
       <DialogTitle className="sr-only">Cari dokumentasi</DialogTitle>
       <DialogDescription className="sr-only">Cari halaman dokumentasi berdasarkan judul, tag, command, atau ringkasan.</DialogDescription>
-      <div className="palette-input-row"><Search className="icon" aria-hidden="true" /><label className="sr-only" htmlFor="palette-input">Cari dokumentasi</label><input id="palette-input" className="palette-input" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
+      <div className="palette-input-row"><Search className="icon" aria-hidden="true" /><label className="sr-only" htmlFor="palette-input">Cari dokumentasi</label><input id="palette-input" className="palette-input" role="combobox" aria-expanded="true" aria-controls="palette-results" aria-activedescendant={activeOptionId} aria-autocomplete="list" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
         if (event.key === "ArrowDown") {
           event.preventDefault();
-          setActive((value) => Math.min(value + 1, results.length - 1));
+          setActive((value) => results.length ? Math.min(value + 1, results.length - 1) : 0);
         } else if (event.key === "ArrowUp") {
           event.preventDefault();
           setActive((value) => Math.max(value - 1, 0));
@@ -654,17 +667,20 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
           select(results[active].path);
         }
       }} placeholder="Cari: install, retry, backup, telegram..." autoComplete="off" spellCheck={false} /></div>
-      <div className="palette-results" role="listbox" aria-labelledby="palette-title">
+      <div className="palette-results">
         <p className="palette-group" id="palette-title">{query ? "Hasil pencarian" : "Mulai dari sini"}</p>
-        {results.length === 0 ? <div className="palette-empty"><p>Tidak ada halaman yang cocok.</p><span>Coba kata lain seperti install, retry, file, atau backup.</span></div> : results.map((doc, index) => <a key={doc.path} href={doc.path} role="option" aria-selected={index === active} className="palette-option" onMouseEnter={() => setActive(index)} onClick={(event) => {
-          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          select(doc.path);
-        }}>
-          <span className="palette-index">{String(index + 1).padStart(2, "0")}</span>
-          <span className="palette-copy"><strong>{doc.title}</strong><span>{doc.group} / {doc.summary}</span></span>
-          <span className="palette-path">{doc.path}</span>
-        </a>)}
+        <div id="palette-results" className="palette-options" role="listbox" aria-labelledby="palette-title">
+          {results.map((doc, index) => <a key={doc.path} id={`palette-option-${index}`} href={doc.path} role="option" aria-selected={index === active} className="palette-option" onMouseEnter={() => setActive(index)} onClick={(event) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            select(doc.path);
+          }}>
+            <span className="palette-index">{String(index + 1).padStart(2, "0")}</span>
+            <span className="palette-copy"><strong>{doc.title}</strong><span>{doc.group} / {doc.summary}</span></span>
+            <span className="palette-path">{doc.path}</span>
+          </a>)}
+        </div>
+        {results.length === 0 && <div className="palette-empty" role="status"><p>Tidak ada halaman yang cocok.</p><span>Coba kata lain seperti install, retry, file, atau backup.</span></div>}
       </div>
       <div className="palette-footer"><span><kbd>Enter</kbd> buka</span><span><kbd>Esc</kbd> tutup</span><span>{results.length} halaman</span></div>
     </DialogContent>
@@ -744,6 +760,8 @@ function MarkdownText({ value }: { value: string }) {
   return <div className="message-markdown">{value.split("\n").map((line, index) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={`space-${index}`} className="message-space" />;
+    const source = trimmed.match(/^Baca lengkap:\s*(https:\/\/\S+)$/i)?.[1];
+    if (source?.startsWith(`${DOCS_URL}/`)) return <p key={index} className="message-source"><a href={source} target="_blank" rel="noreferrer">Baca halaman sumber <ExternalLink className="icon" aria-hidden="true" /></a></p>;
     if (trimmed.startsWith("### ")) return <h4 key={index}>{renderInline(trimmed.slice(4))}</h4>;
     if (trimmed.startsWith("## ")) return <h3 key={index}>{renderInline(trimmed.slice(3))}</h3>;
     if (trimmed.startsWith("# ")) return <h3 key={index}>{renderInline(trimmed.slice(2))}</h3>;
@@ -757,11 +775,11 @@ function RichMessage({ content }: { content: string }) {
   return <div className="message-rich">{parseRichContent(content).map((part, index) => part.type === "code" ? <CopyableBlock key={index} code={part.value} label={part.title} compact /> : <MarkdownText key={index} value={part.value} />)}</div>;
 }
 
-async function readAiResponse(response: Response): Promise<{ answer?: string }> {
+async function readAiResponse(response: Response): Promise<{ answer?: string; fallback?: boolean }> {
   const raw = await response.text();
   if (!raw.trim()) return {};
   try {
-    return JSON.parse(raw) as { answer?: string };
+    return JSON.parse(raw) as { answer?: string; fallback?: boolean };
   } catch {
     return { answer: response.ok ? "AI mengembalikan respons yang tidak dapat dibaca." : "Asisten belum mendapat jawaban dari server. Coba lagi atau pakai pencarian lokal." };
   }
@@ -799,6 +817,7 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   const [lastFailed, setLastFailed] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const launchRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handler = () => setOpen(true);
@@ -843,7 +862,7 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setLoading(true);
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 45000);
+    const timer = window.setTimeout(() => controller.abort(), 25000);
     try {
       const response = await fetch("/api/ai", {
         method: "POST",
@@ -855,7 +874,7 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
       if (!response.ok) throw new Error(data.answer ?? "Asisten belum mendapat jawaban. Coba lagi atau pakai pencarian lokal.");
       const answer = data.answer?.trim();
       if (!answer) throw new Error("AI belum mengembalikan jawaban. Coba lagi.");
-      setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: answer, source: data.fallback ? "docs" : "ai" }]);
     } catch (error) {
       setLastFailed(text);
       const message = error instanceof DOMException && error.name === "AbortError"
@@ -888,24 +907,23 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
   const assistantState = loading ? "memproses" : lastMessage?.kind === "error" ? "gagal" : "siap";
 
   return <>
-    <button type="button" className="assistant-launch" onClick={() => setOpen(true)} aria-haspopup="dialog">
+    <button ref={launchRef} type="button" className="assistant-launch" onClick={() => setOpen(true)} aria-haspopup="dialog">
       <MessageSquare className="icon" aria-hidden="true" />
       <span>Tanya docs</span>
     </button>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="assistant-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => inputRef.current?.focus(), 80); }}>
-        <DialogTitle className="sr-only">Tanya dokumentasi</DialogTitle>
+      <DialogContent className="assistant-panel" onOpenAutoFocus={(event) => { event.preventDefault(); window.setTimeout(() => inputRef.current?.focus(), 80); }} onCloseAutoFocus={(event) => { event.preventDefault(); const target = window.matchMedia("(max-width: 680px)").matches ? document.querySelector<HTMLButtonElement>(".menu-button") : launchRef.current; target?.focus(); }}>
         <DialogDescription className="sr-only">Asisten menjawab berdasarkan halaman dokumentasi yang sedang dibuka.</DialogDescription>
         <header className="assistant-head">
-          <div><p className="assistant-kicker">Konteks halaman</p><h2 id="assistant-title">Tanya dokumentasi</h2><div className="assistant-meta"><p className="assistant-context">{activeDoc.title}</p><Badge variant="outline" className="assistant-health" data-state={assistantState}>{assistantState}</Badge></div></div>
+          <div><p className="assistant-kicker">Konteks halaman</p><DialogTitle asChild><h2>Tanya dokumentasi</h2></DialogTitle><div className="assistant-meta"><p className="assistant-context">{activeDoc.title}</p><Badge variant="outline" className="assistant-health" data-state={assistantState}>{assistantState}</Badge></div></div>
           <div className="assistant-head-actions">
             <button type="button" className="icon-button" title="Mulai chat baru" aria-label="Mulai chat baru" onClick={resetChat}><RotateCcw className="icon" aria-hidden="true" /></button>
             <button type="button" className="icon-button" title="Tutup asisten" aria-label="Tutup asisten dokumentasi" onClick={() => setOpen(false)}><X className="icon" aria-hidden="true" /></button>
           </div>
         </header>
-        <div ref={listRef} className="assistant-messages" aria-live="polite" aria-busy={loading}>
+        <div ref={listRef} className="assistant-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={loading}>
           {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`message ${message.role === "user" ? "message-user" : "message-assistant"} ${message.kind === "error" ? "message-error" : ""}`}>
-            <span className="message-label">{message.role === "user" ? "Anda" : "Asisten"}</span>
+            <span className="message-label">{message.role === "user" ? "Anda" : message.source === "docs" ? "Dokumentasi" : "Asisten"}</span>
             {message.kind === "error" ? <div className="message-error-body" role="alert"><CircleAlert className="icon" aria-hidden="true" /><RichMessage content={message.content} /></div> : <RichMessage content={message.content} />}
             {message.kind === "error" && index === messages.length - 1 && lastFailed && !loading && <Button type="button" variant="secondary" size="sm" className="message-retry" onClick={() => void ask(lastFailed)}><RotateCcw className="icon" aria-hidden="true" /> Coba lagi pertanyaan terakhir</Button>}
           </div>)}
@@ -925,10 +943,9 @@ function Assistant({ activeDoc }: { activeDoc: DocSection }) {
 
 function MobileMenu({ open, onClose, activePath, onNavigate, onSearch, onAssistant }: { open: boolean; onClose: () => void; activePath: string; onNavigate: (path: string) => void; onSearch: () => void; onAssistant: () => void }) {
   return <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-    <DialogContent className="mobile-sheet">
-      <DialogTitle className="sr-only">Menu dokumentasi</DialogTitle>
+    <DialogContent className="mobile-sheet" onCloseAutoFocus={(event) => { event.preventDefault(); document.querySelector<HTMLButtonElement>(".menu-button")?.focus(); }}>
       <DialogDescription className="sr-only">Navigasi halaman, pencarian, dan asisten dokumentasi.</DialogDescription>
-      <div className="mobile-sheet-head"><h2 id="mobile-menu-title">Menu dokumentasi</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Tutup menu"><X className="icon" aria-hidden="true" /></button></div>
+      <div className="mobile-sheet-head"><DialogTitle asChild><h2>Menu dokumentasi</h2></DialogTitle><button type="button" className="icon-button" onClick={onClose} aria-label="Tutup menu"><X className="icon" aria-hidden="true" /></button></div>
       <button type="button" className="mobile-assistant" onClick={() => { onClose(); onAssistant(); }}><MessageSquare className="icon" aria-hidden="true" /><span className="mobile-assistant-label">Tanya dokumentasi</span><Badge variant="muted" className="mobile-assistant-tag">AI</Badge></button>
       <Sidebar activePath={activePath} onNavigate={(path) => { onClose(); onNavigate(path); }} onSearch={() => { onClose(); onSearch(); }} />
     </DialogContent>

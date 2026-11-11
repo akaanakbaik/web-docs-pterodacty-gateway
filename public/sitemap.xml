@@ -11,6 +11,11 @@
   </url>
 
   <url>
+    <loc>https://pterodacty-gateway.akaa.dev/docs/panel-compat</loc>
+    <priority>0.95</priority>
+  </url>
+
+  <url>
     <loc>https://pterodacty-gateway.akaa.dev/docs/install</loc>
     <priority>0.95</priority>
   </url>

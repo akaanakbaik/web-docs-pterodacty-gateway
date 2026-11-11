@@ -1959,11 +1959,15 @@ kbd {
   scrollbar-color: var(--line-strong) transparent;
 }
 
+.palette-options {
+  display: grid;
+}
+
 .palette-group {
   margin: 2px 8px 6px;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1988,7 +1992,7 @@ kbd {
 .palette-index {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .palette-copy {
@@ -2007,7 +2011,7 @@ kbd {
   display: -webkit-box;
   overflow: hidden;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
@@ -2018,7 +2022,7 @@ kbd {
   overflow: hidden;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2047,7 +2051,7 @@ kbd {
   padding: 9px 12px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .palette-footer span {
@@ -2098,7 +2102,7 @@ kbd {
   margin: 0;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2124,7 +2128,7 @@ kbd {
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2135,7 +2139,7 @@ kbd {
   margin-top: 3px;
   padding: 0 5px;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2194,7 +2198,7 @@ kbd {
 .message-label {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -2262,9 +2266,33 @@ kbd {
 
 .message-markdown {
   color: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.message-source {
+  margin-top: 3px;
+}
+
+.message-source a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  border-bottom: 1px solid var(--signal-line);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.message-source a:hover {
+  color: var(--signal-line);
+}
+
+.message-source .icon {
+  width: 12px;
+  height: 12px;
 }
 
 .message-markdown p {
@@ -2297,7 +2325,7 @@ kbd {
 .message-list-row > span:first-child {
   color: var(--signal-line);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .message-user .message-list-row > span:first-child {
@@ -2311,7 +2339,7 @@ kbd {
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .message-user .inline-code {
@@ -2343,7 +2371,7 @@ kbd {
 
 .thinking em {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
 }
 
@@ -2360,7 +2388,7 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   text-align: left;
 }
 
@@ -2408,7 +2436,7 @@ kbd {
   border-radius: 4px;
   background: var(--ink);
   color: var(--canvas);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -2420,7 +2448,7 @@ kbd {
 .assistant-foot {
   margin: 6px 12px 10px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.4;
 }
 

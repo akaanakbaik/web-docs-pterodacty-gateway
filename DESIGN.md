@@ -65,7 +65,7 @@ Documentation pages use a single article with numbered steps, a command runner, 
 - The component layer uses shadcn-style Radix primitives: Dialog for the palette, assistant, and mobile sheet; Tabs for command scenarios; Tooltip for icon controls; Progress for the simulation; Badge, Button, and Skeleton for feedback states.
 - A compact specification strip below the header states the SDK version, runtime, panel support, and license. It is real package metadata, not decoration.
 - A static boot skeleton in `index.html` paints the header, rails, and reading column before the React bundle arrives. The assistant uses the shadcn Skeleton for reply loading.
-- The assistant exposes its real state (`siap`, `memproses`, `gagal`) in a compact badge. A failed request becomes a bordered error message with one retry action, so a slow provider never looks like an empty answer. If the provider fails all attempts, the API returns a concise answer from the local documentation index and marks it as a fallback.
+- The assistant exposes its real state (`siap`, `memproses`, `gagal`) in a compact badge. A failed request becomes a bordered error message with one retry action, so a slow provider never looks like an empty answer. If the provider fails all attempts, the API returns a concise answer from the local documentation index and marks it as a fallback. The message is labeled `Dokumentasi` and its source page is a direct link, so the reader can tell AI prose from documentation text.
 - Copy actions confirm through a themed sonner toast placed below the header, away from the assistant composer.
 - The AI assistant is a side panel on desktop and a full-height sheet on mobile. It opens from a labeled button.
 
@@ -83,7 +83,7 @@ Voice: direct, operational, and specific. Indonesian is the primary language. Co
 
 ## Accessibility
 
-Both themes meet WCAG AA for body text and 3:1 for interactive boundaries. Every control has a visible focus ring, a native element, and an accessible name. The command palette and assistant close with Escape. A skip link is the first focusable element. Motion respects `prefers-reduced-motion`.
+Both themes meet WCAG AA for body text and 3:1 for interactive boundaries. Every control has a visible focus ring, a native element, and an accessible name. The command palette exposes combobox and listbox semantics, including the active option, and every dialog returns focus to the control that opened it. The command palette and assistant close with Escape. A skip link is the first focusable element. Motion respects `prefers-reduced-motion`.
 
 ## Anti-slop decisions
 
