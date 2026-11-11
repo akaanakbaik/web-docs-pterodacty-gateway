@@ -59,7 +59,7 @@ export function sanitizeAnswer(value: string) {
   return text;
 }
 
-const STOPWORDS = new Set(["apa", "apakah", "itu", "ini", "dan", "yang", "untuk", "dengan", "dari", "pada", "atau", "akan", "tidak", "sudah", "belum", "saya", "bisa", "cara", "bagaimana", "kenapa", "mengapa", "adalah", "juga", "agar", "dalam", "ke", "di", "the", "dan"]);
+const STOPWORDS = new Set(["apa", "apakah", "itu", "ini", "dan", "yang", "untuk", "dengan", "dari", "pada", "atau", "akan", "tidak", "sudah", "belum", "saya", "bisa", "cara", "bagaimana", "kenapa", "mengapa", "adalah", "juga", "agar", "dalam", "ke", "di", "the", "dan", "pterodactyl", "pterodacty", "gateway", "akadev", "docs", "dokumentasi"]);
 
 function fallbackTerms(question: string) {
   return [...new Set(question.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).flatMap((word) => {

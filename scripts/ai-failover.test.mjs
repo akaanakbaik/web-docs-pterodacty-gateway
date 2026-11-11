@@ -58,6 +58,15 @@ test("network errors are retried and then reported as a safe fallback", async ()
   assert.deepEqual(result.attempts.map((item) => item.status), [0, 0, 0]);
 });
 
+test("install fallback prefers the installation page over the overview", async () => {
+  const result = await __testing.askWithSiputzx("Bagaimana cara install Pterodactyl Gateway?", "Context", async () => {
+    throw new Error("timeout");
+  });
+  assert.equal(result.fallback, true);
+  assert.ok(result.answer.includes("/docs/install"));
+  assert.match(result.answer, /npm i @akaanakbaik\/pterodactyl-gateway/);
+});
+
 test("provider failure returns a relevant documentation fallback", async () => {
   const result = await __testing.askWithSiputzx("Apa itu retry dan backoff?", "Context", async () => {
     throw new Error("timeout");
